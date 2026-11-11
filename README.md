@@ -94,6 +94,10 @@ verses. Choose **Edit note** in Stage view to return to writing and paste or
 dictate more text. The stage reader fits the phone viewport and scrolls long
 notes within the reading area. Pasted plain-text line breaks, blank lines, and
 indentation are preserved in both the editor and Stage view.
+On phones, form text stays at a readable 16px to prevent Safari's automatic
+focus zoom, and the Notes header scrolls normally while the keyboard is open.
+The phone header scrolls with the page on mobile rather than sticking over the
+keyboard. Task labels and prompts use plain, action-focused language.
 Drafts autosave in this browser's local storage; they are not synced to another
 device. Anyone with access to this browser profile may be able to read them.
 In Notes, the enlarged neural sphere floats gently above the editor; this is a

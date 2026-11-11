@@ -41,6 +41,7 @@
       margin: 0;
       min-width: 0;
       min-height: 100vh;
+      min-height: 100svh;
       overflow-x: hidden;
       background:
         radial-gradient(ellipse at 51% 12%, rgba(32, 113, 117, .16), transparent 38rem),
@@ -833,6 +834,7 @@
     }
     @media (max-width: 650px) {
       .shell { width: min(100% - 24px, 500px); }
+      .topbar { position: relative; }
       .topbar-inner { min-height: 54px; }
       .brand-mark { width: 32px; height: 32px; }
       .link-state { min-height: 33px; padding: 0 9px; font-size: 8px; }
@@ -842,6 +844,7 @@
       .eyebrow { font-size: 8px; letter-spacing: .12em; }
       h1 { font-size: 26px; }
       .notes-neural { top: calc(54px + env(safe-area-inset-top)); min-height: 150px; grid-template-columns: minmax(0, 1fr) clamp(136px, 44vw, 170px); gap: 2px; margin-inline: -13px; padding-inline: 12px; }
+      body.notes-mode:not(.stage-view-active) .notes-neural { position: relative; top: auto; }
       .notes-neural-copy h2 { font-size: 18px; }
       .notes-neural-copy p { font-size: 9px; }
       .notes-neural .orb-wrap { width: min(100%, 166px); min-height: 142px; }
@@ -865,7 +868,10 @@
       .activity-panel { padding: 10px 12px; }
       .notes-panel { padding: 0 13px 14px; }
       .notes-meta { gap: 7px; }
-      .notes-body { min-height: 48vh; padding: 14px; font-size: 15px; }
+      .notes-body { min-height: 48vh; padding: 14px; }
+      .text-field, .select-field, .notes-body,
+      .intent-composer .text-field { font-size: 16px; }
+      .notes-panel.stage-mode .notes-neural { position: relative; top: auto; }
       .stage-reader-controls { gap: 4px; }
       .stage-reader-controls button { min-width: 32px; min-height: 34px; padding-inline: 6px; }
       .notes-panel.stage-mode .notes-stage-info { gap: 7px; }
@@ -922,9 +928,9 @@
   <main class="shell" id="top">
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <div class="eyebrow"><span class="eyebrow-line"></span> XENOMIND / PERSONAL SYSTEM</div>
-        <h1 id="hero-title">Speak once.<br><span>Keep moving.</span></h1>
-        <p>Your phone prepares the action. You stay in control.</p>
+        <div class="eyebrow"><span class="eyebrow-line"></span> YOUR PHONE, AT HAND</div>
+        <h1 id="hero-title">Make room<br><span>in your head.</span></h1>
+        <p>Set a reminder, choose photos or files, or start a Home scene.</p>
       </div>
       <div class="orb-wrap">
         <button class="voice-node" id="voice-node" type="button" aria-label="Press and hold to speak an intent" aria-describedby="voice-hint" data-state="idle">
@@ -947,7 +953,7 @@
       <p class="intent-hint" id="intent-hint"></p>
     </section>
     <div class="chain-bar" role="group" aria-label="Quick intent chains">
-      <span class="chain-label">AUTOMATIONS</span>
+      <span class="chain-label">QUICK ACTIONS</span>
       <button class="chain-button" type="button" data-chain="deep-work">Deep Work</button>
       <button class="chain-button" type="button" data-chain="end-of-day">End of Day Sync</button>
     </div>
@@ -1043,9 +1049,9 @@
       <section class="module notes-panel" id="notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
         <div class="notes-neural">
           <div class="notes-neural-copy">
-            <div class="eyebrow"><span class="eyebrow-line"></span> XENOMIND / LIVE SCRIPT</div>
-            <h2>Words in orbit.</h2>
-            <p>Your lyrics and verses stay on this device. Hold the sphere to dictate.</p>
+            <div class="eyebrow"><span class="eyebrow-line"></span> XENOMIND / NOTES</div>
+            <h2>Your notes</h2>
+            <p>Lyrics, verses, and thoughts, saved on this device.</p>
           </div>
           <div class="notes-orb-slot" id="notes-orb-slot"></div>
         </div>
@@ -1807,9 +1813,9 @@
         : currentHour < 17 ? "afternoon" : "evening";
       const timeHints = {
         reminders: {
-          morning: "Your day is starting. Capture the first thing on your mind.",
-          afternoon: "Add a reminder, or choose a timer chain.",
-          evening: "Set up tomorrow, or choose a wind-down chain."
+          morning: "What do you need to remember today?",
+          afternoon: "Add something you want to remember.",
+          evening: "What should you remember tomorrow?"
         },
         library: {
           morning: "Choose photos or files. XENOMIND only sees what you select.",
