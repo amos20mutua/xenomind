@@ -39,7 +39,7 @@
     html { scroll-behavior: smooth; scroll-padding-top: 84px; }
     body {
       margin: 0;
-      min-width: 320px;
+      min-width: 0;
       min-height: 100vh;
       overflow-x: hidden;
       background:
@@ -445,12 +445,12 @@
       z-index: 12;
       top: calc(66px + env(safe-area-inset-top));
       display: grid;
-      min-height: 136px;
-      grid-template-columns: minmax(0, 1fr) 166px;
+      min-height: 158px;
+      grid-template-columns: minmax(0, 1fr) 190px;
       align-items: center;
       gap: 8px;
       margin: 0 -16px 14px;
-      padding: 8px 14px;
+      padding: 10px 14px;
       border-bottom: 1px solid rgba(117,216,239,.15);
       background: rgba(10,16,24,.94);
       backdrop-filter: blur(18px);
@@ -460,12 +460,21 @@
     .notes-neural-copy h2 { margin: 9px 0 5px; font-size: 20px; letter-spacing: -.04em; }
     .notes-neural-copy p { max-width: 260px; margin: 0; color: #9aadb3; font-size: 10px; line-height: 1.5; }
     .notes-orb-slot { display: grid; min-width: 0; place-items: center; }
-    .notes-neural .orb-wrap { width: 158px; min-height: 128px; margin: 0; }
-    .notes-neural .voice-node { width: 150px; min-height: 128px; }
-    .notes-neural .orb-wrap::before { width: 150px; height: 86px; }
-    .notes-neural .orb-wrap::after { width: 136px; height: 108px; }
+    .notes-neural .orb-wrap {
+      width: min(100%, 184px);
+      min-height: 150px;
+      margin: 0;
+      animation: neural-float 7.4s ease-in-out infinite;
+    }
+    .notes-neural .voice-node { width: min(100%, 176px); min-height: 148px; }
+    .notes-neural .orb-wrap::before { width: 176px; height: 100px; }
+    .notes-neural .orb-wrap::after { width: 158px; height: 126px; }
     .notes-neural .orb-caption { bottom: 0; font-size: 6px; }
     .notes-neural .voice-hint { bottom: 6px; font-size: 7px; }
+    @keyframes neural-float {
+      0%, 100% { transform: translate3d(0, 3px, 0) rotate(-1deg); }
+      50% { transform: translate3d(0, -8px, 0) rotate(1deg); }
+    }
     .notes-toolbar, .notes-meta, .notes-stage-bar {
       display: flex;
       align-items: end;
@@ -477,13 +486,19 @@
     .notes-toolbar .select-field { min-height: 42px; }
     .notes-meta > * { flex: 1; min-width: 0; }
     .notes-meta .text-field, .notes-meta .select-field { min-height: 43px; }
-    .notes-stage-bar { align-items: center; justify-content: space-between; margin: 14px 0 8px; }
-    .notes-stage-bar > span, .notes-save-state {
+    .notes-stage-bar { align-items: center; justify-content: space-between; margin: 17px 0 8px; }
+    .notes-save-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
       color: #78949d;
       font: 8px ui-monospace, SFMono-Regular, Menlo, monospace;
       letter-spacing: .12em;
       text-transform: uppercase;
     }
+    .notes-save-state::before { width: 6px; height: 6px; border-radius: 50%; background: #71e1bd; box-shadow: 0 0 10px rgba(113,225,189,.5); content: ""; }
+    .notes-save-state[data-state="saving"]::before { background: var(--amber); box-shadow: 0 0 10px rgba(255,203,136,.5); }
+    .notes-save-state[data-state="error"]::before { background: var(--pink); box-shadow: 0 0 10px rgba(255,147,180,.5); }
     .notes-stage-button, .notes-delete-button {
       min-height: 37px;
       padding: 0 12px;
@@ -495,7 +510,12 @@
       font-weight: 650;
       cursor: pointer;
     }
+    .notes-stage-button { border-color: rgba(117,216,239,.36); background: linear-gradient(135deg, rgba(117,216,239,.14), rgba(120,243,208,.09)); color: #d0fbf3; box-shadow: 0 0 20px rgba(117,216,239,.06), inset 0 1px rgba(255,255,255,.04); }
+    .notes-stage-button:active, .notes-delete-button:active { transform: scale(.97); }
     .notes-delete-button { border-color: rgba(255,147,180,.2); background: rgba(255,147,180,.045); color: #e6aabe; }
+    .notes-edit-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 1px 7px; }
+    .notes-edit-head .field-label { margin: 0; }
+    .notes-count { color: #718991; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .07em; }
     .notes-body {
       display: block;
       width: 100%;
@@ -516,10 +536,24 @@
     }
     .notes-body:focus { border-color: rgba(117,216,239,.5); box-shadow: 0 0 24px rgba(117,216,239,.08); }
     .notes-save-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
-    .notes-save-state { font-size: 8px; letter-spacing: .08em; }
-    .notes-save-state[data-state="saving"] { color: var(--amber); }
-    .notes-save-state[data-state="error"] { color: var(--pink); }
     .notes-stage-info { display: none; }
+    .stage-reader-controls { display: flex; align-items: center; gap: 6px; }
+    .stage-reader-controls button {
+      display: grid;
+      min-width: 35px;
+      min-height: 35px;
+      place-items: center;
+      padding: 0 8px;
+      border: 1px solid rgba(117,216,239,.22);
+      border-radius: 10px;
+      background: rgba(117,216,239,.06);
+      color: #c9e8e8;
+      font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+      cursor: pointer;
+    }
+    .stage-reader-controls output { min-width: 30px; color: #91a9ad; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
+    .stage-reader-controls .notes-stage-button { display: block; min-width: auto; font-size: 10px; font-family: inherit; }
+    .notes-panel.stage-mode .notes-save-state { display: none; }
     .stage-wake {
       position: fixed;
       z-index: 60;
@@ -529,22 +563,101 @@
       min-height: 100%;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
       padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
       border: 0;
-      background: rgba(2,5,9,.62);
+      background:
+        radial-gradient(ellipse at 50% 48%, rgba(12,48,55,.32), rgba(2,5,9,.84) 66%),
+        rgba(2,5,9,.7);
       color: #d8e6e8;
       cursor: pointer;
+      isolation: isolate;
+      touch-action: manipulation;
       backdrop-filter: blur(3px);
       -webkit-backdrop-filter: blur(3px);
     }
-    .stage-wake span {
-      padding: 12px 17px;
-      border: 1px solid rgba(120,243,208,.3);
-      border-radius: 999px;
-      background: rgba(10,20,27,.88);
-      color: var(--mint);
-      font: 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+    .stage-wake::before, .stage-wake::after {
+      position: absolute;
+      z-index: -1;
+      inset: -23%;
+      border: 1px solid rgba(117,216,239,.13);
+      border-radius: 50%;
+      content: "";
+      pointer-events: none;
+    }
+    .stage-wake::before {
+      transform: rotateX(68deg) rotate(-18deg);
+      box-shadow: 0 0 60px rgba(49,205,202,.07), inset 0 0 50px rgba(49,205,202,.035);
+      animation: wake-orbit 34s linear infinite;
+    }
+    .stage-wake::after {
+      inset: -12%;
+      border-style: dashed;
+      border-color: rgba(120,243,208,.1);
+      transform: rotateX(68deg) rotate(34deg);
+      animation: wake-orbit 52s linear infinite reverse;
+    }
+    .wake-brain {
+      position: absolute;
+      z-index: 0;
+      top: 50%;
+      left: 50%;
+      width: min(108vw, 680px);
+      height: min(100vh, 840px);
+      transform: translate(-50%, -50%);
+      opacity: .9;
+      filter: drop-shadow(0 0 22px rgba(67,224,205,.22));
+      pointer-events: none;
+    }
+    .wake-interface {
+      position: absolute;
+      z-index: 1;
+      inset: max(26px, env(safe-area-inset-top)) 22px max(26px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+    .wake-readout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: rgba(155,218,220,.62);
+      font: 8px ui-monospace, SFMono-Regular, Menlo, monospace;
       letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .wake-readout span:last-child { color: rgba(120,243,208,.72); }
+    .wake-center {
+      position: relative;
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      text-align: center;
+    }
+    .wake-prompt {
+      padding: 13px 19px;
+      border: 1px solid rgba(120,243,208,.38);
+      border-radius: 999px;
+      background: rgba(7,16,22,.86);
+      box-shadow: 0 0 36px rgba(86,236,215,.12), inset 0 0 18px rgba(120,243,208,.04);
+      color: #c9ffed;
+      font: 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .2em;
+      text-shadow: 0 0 14px rgba(120,243,208,.4);
+      animation: wake-signal 3.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .wake-subtitle {
+      color: rgba(169,207,211,.62);
+      font: 8px ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    @keyframes wake-orbit { to { rotate: 360deg; } }
+    @keyframes wake-signal { 50% { box-shadow: 0 0 48px rgba(86,236,215,.2), inset 0 0 22px rgba(120,243,208,.08); } }
+    .stage-wake span {
+      pointer-events: none;
     }
     body.stage-dimmed > .stage-wake { display: flex; }
     body.notes-mode .hero { display: none; }
@@ -553,6 +666,8 @@
     body.stage-view-active .topbar { visibility: hidden; }
     body.stage-view-active main { padding: 0; }
     body.stage-view-active .notes-neural { top: 0; }
+    body.notes-mode .activity-panel,
+    body.notes-mode .footer-note { display: none; }
     body.stage-view-active .system-tabs,
     body.stage-view-active #intent-composer,
     body.stage-view-active .chain-bar,
@@ -574,7 +689,7 @@
     .notes-panel.stage-mode .notes-toolbar,
     .notes-panel.stage-mode .notes-meta,
     .notes-panel.stage-mode .notes-stage-bar,
-    .notes-panel.stage-mode .notes-edit-label,
+    .notes-panel.stage-mode .notes-edit-head,
     .notes-panel.stage-mode .notes-save-row { display: none; }
     .notes-panel.stage-mode .notes-stage-info {
       display: flex;
@@ -585,6 +700,8 @@
     }
     .notes-panel.stage-mode .notes-stage-info strong { font-size: 13px; font-weight: 600; }
     .notes-panel.stage-mode .notes-stage-info span { color: var(--cyan); font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; }
+    .notes-panel.stage-mode .notes-stage-info > span { flex: 0 0 auto; }
+    .notes-panel.stage-mode .notes-stage-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .notes-panel.stage-mode .notes-neural-copy p { display: none; }
     .notes-panel.stage-mode .notes-body {
       min-height: 56vh;
@@ -594,7 +711,7 @@
       border-radius: 0;
       background: transparent;
       color: #f4fbf9;
-      font-size: clamp(22px, 5.7vw, 31px);
+      font-size: clamp(22px, var(--stage-note-size, 30px), 40px);
       line-height: 1.65;
       letter-spacing: -.015em;
     }
@@ -705,13 +822,13 @@
       .hero-copy > p { max-width: 235px; font-size: 10px; }
       .eyebrow { font-size: 8px; letter-spacing: .12em; }
       h1 { font-size: 26px; }
-      .notes-neural { top: calc(54px + env(safe-area-inset-top)); min-height: 126px; grid-template-columns: minmax(0, 1fr) 146px; gap: 2px; margin-inline: -13px; padding-inline: 12px; }
+      .notes-neural { top: calc(54px + env(safe-area-inset-top)); min-height: 150px; grid-template-columns: minmax(0, 1fr) clamp(136px, 44vw, 170px); gap: 2px; margin-inline: -13px; padding-inline: 12px; }
       .notes-neural-copy h2 { font-size: 18px; }
       .notes-neural-copy p { font-size: 9px; }
-      .notes-neural .orb-wrap { width: 144px; min-height: 120px; }
-      .notes-neural .voice-node { width: 138px; min-height: 118px; }
-      .notes-neural .orb-wrap::before { width: 138px; height: 78px; }
-      .notes-neural .orb-wrap::after { width: 124px; height: 96px; }
+      .notes-neural .orb-wrap { width: min(100%, 166px); min-height: 142px; }
+      .notes-neural .voice-node { width: min(100%, 160px); min-height: 140px; }
+      .notes-neural .orb-wrap::before { width: 160px; height: 92px; }
+      .notes-neural .orb-wrap::after { width: 144px; height: 114px; }
       .system-tab { padding-inline: 3px; font-size: 8px; }
       .orb-wrap { min-height: 102px; margin: 0 -7px; }
       .voice-node { width: 118px; min-height: 102px; }
@@ -730,6 +847,10 @@
       .notes-panel { padding: 0 13px 14px; }
       .notes-meta { gap: 7px; }
       .notes-body { min-height: 48vh; padding: 14px; font-size: 15px; }
+      .stage-reader-controls { gap: 4px; }
+      .stage-reader-controls button { min-width: 32px; min-height: 34px; padding-inline: 6px; }
+      .notes-panel.stage-mode .notes-stage-info { gap: 7px; }
+      .notes-panel.stage-mode .notes-stage-info strong { font-size: 11px; }
       .notes-panel.stage-mode { padding-inline: 14px; }
       .notes-panel.stage-mode .notes-body { min-height: 58vh; }
     }
@@ -739,11 +860,11 @@
       .brand-sub { font-size: 8px; }
       .link-state { font-size: 7px; }
       .hero { padding-inline: 18px; }
-      .notes-neural { grid-template-columns: minmax(0, 1fr) 128px; }
-      .notes-neural .orb-wrap { width: 128px; }
-      .notes-neural .voice-node { width: 122px; }
-      .notes-neural .orb-wrap::before { width: 124px; }
-      .notes-neural .orb-wrap::after { width: 112px; }
+      .notes-neural { grid-template-columns: minmax(0, 1fr) 132px; }
+      .notes-neural .orb-wrap { width: min(100%, 130px); min-height: 130px; }
+      .notes-neural .voice-node { width: min(100%, 126px); min-height: 128px; }
+      .notes-neural .orb-wrap::before { width: 132px; height: 76px; }
+      .notes-neural .orb-wrap::after { width: 120px; height: 96px; }
       .field-row { grid-template-columns: 1fr; }
       .field-row .action-button { width: 100%; }
     }
@@ -932,18 +1053,25 @@
           </div>
         </div>
         <div class="notes-stage-bar">
-          <span>LOCAL / AUTOSAVE</span>
+          <span class="notes-save-state" id="notes-save-state" role="status" aria-live="polite" data-state="saved">SAVED ON THIS DEVICE</span>
           <button class="notes-stage-button" id="toggle-stage" type="button" aria-pressed="false">Stage view</button>
         </div>
         <div class="notes-stage-info">
           <strong id="stage-note-title"></strong>
           <span id="stage-note-category"></span>
-          <button class="notes-stage-button" id="exit-stage" type="button">Exit stage</button>
+          <div class="stage-reader-controls" role="group" aria-label="Stage text size">
+            <button id="stage-text-smaller" type="button" aria-label="Make stage text smaller">A−</button>
+            <output id="stage-text-size" aria-live="polite">30</output>
+            <button id="stage-text-larger" type="button" aria-label="Make stage text larger">A+</button>
+            <button class="notes-stage-button" id="exit-stage" type="button">Exit stage</button>
+          </div>
         </div>
-        <label class="field-label notes-edit-label" for="note-body">Note text</label>
+        <div class="notes-edit-head">
+          <label class="field-label notes-edit-label" for="note-body">Your words</label>
+          <span class="notes-count" id="notes-count">0 words · 0 lines</span>
+        </div>
         <textarea class="notes-body" id="note-body" maxlength="50000" rows="10" spellcheck="true" autocapitalize="sentences" aria-describedby="notes-save-state"></textarea>
         <div class="notes-save-row">
-          <span class="notes-save-state" id="notes-save-state" role="status" aria-live="polite" data-state="saved">SAVED ON THIS DEVICE</span>
           <button class="notes-delete-button" id="delete-note" type="button">Delete note</button>
         </div>
       </section>
@@ -992,7 +1120,14 @@
       </div>
     </form>
   </dialog>
-  <button class="stage-wake" id="stage-wake" type="button" aria-label="Wake the dimmed stage display"><span>TAP TO WAKE</span></button>
+  <button class="stage-wake" id="stage-wake" type="button" aria-label="Tap to wake the XENOMIND stage display">
+    <canvas class="wake-brain" id="wake-brain" aria-hidden="true"></canvas>
+    <span class="wake-interface" aria-hidden="true">
+      <span class="wake-readout"><span>XENOMIND / NEURAL IDLE</span><span>TOUCH LINK // READY</span></span>
+      <span class="wake-center"><span class="wake-prompt">TAP TO WAKE</span><span class="wake-subtitle">Signal suspended · local only</span></span>
+      <span class="wake-readout"><span>LOW POWER STATE</span><span>01 / 01</span></span>
+    </span>
+  </button>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -1016,10 +1151,13 @@
       const noteCategory = document.getElementById("note-category");
       const noteBody = document.getElementById("note-body");
       const notesSaveState = document.getElementById("notes-save-state");
+      const notesCount = document.getElementById("notes-count");
       const neuralOrb = document.querySelector(".orb-wrap");
+      const stageTextSizeOutput = document.getElementById("stage-text-size");
       let stageNotes = [];
       let activeNoteId = "";
       let notesStorageFailed = false;
+      let stageTextSize = 30;
       let noteSaveTimer;
       let stageIdleTimer;
       const intentInput = document.getElementById("intent-input");
@@ -1154,6 +1292,21 @@
         noteBody.value = note.body;
         document.getElementById("stage-note-title").textContent = noteDisplayTitle(note);
         document.getElementById("stage-note-category").textContent = note.category;
+        updateNoteMetrics();
+      }
+
+      function updateNoteMetrics() {
+        const words = noteBody.value.trim().split(/\s+/).filter(Boolean).length;
+        const lines = noteBody.value ? noteBody.value.split(/\r\n|\r|\n/).length : 0;
+        notesCount.textContent = words + (words === 1 ? " word" : " words")
+          + " · " + lines + (lines === 1 ? " line" : " lines");
+      }
+
+      function setStageTextSize(size) {
+        stageTextSize = Math.max(22, Math.min(40, size));
+        notesPanel.style.setProperty("--stage-note-size", stageTextSize + "px");
+        stageTextSizeOutput.value = stageTextSize;
+        stageTextSizeOutput.textContent = stageTextSize;
       }
 
       function setNotesSaveState(state, message) {
@@ -1188,6 +1341,7 @@
         document.getElementById("stage-note-title").textContent = noteDisplayTitle(note);
         document.getElementById("stage-note-category").textContent = note.category;
         renderNoteOptions();
+        updateNoteMetrics();
         setNotesSaveState("saving", "SAVING ON THIS DEVICE");
         clearTimeout(noteSaveTimer);
         noteSaveTimer = window.setTimeout(persistStageNotes, 350);
@@ -1202,6 +1356,8 @@
         stageIdleTimer = window.setTimeout(() => {
           if (document.body.classList.contains("notes-mode")) {
             document.body.classList.add("stage-dimmed");
+            wakeBrainRendered = false;
+            scheduleBrainFrame();
           }
         }, 60000);
       }
@@ -1264,10 +1420,32 @@
       });
       document.getElementById("toggle-stage").addEventListener("click", () => setStageMode(true));
       document.getElementById("exit-stage").addEventListener("click", () => setStageMode(false));
-      document.getElementById("stage-wake").addEventListener("click", () => {
+      setStageTextSize(stageTextSize);
+      document.getElementById("stage-text-smaller").addEventListener("click", () => {
+        setStageTextSize(stageTextSize - 2);
+        haptic(5);
+      });
+      document.getElementById("stage-text-larger").addEventListener("click", () => {
+        setStageTextSize(stageTextSize + 2);
+        haptic(5);
+      });
+      let lastWakePointerAt = 0;
+      function wakeStageDisplay() {
         document.body.classList.remove("stage-dimmed");
-        haptic(8);
         resetStageIdleTimer();
+        scheduleBrainFrame();
+        haptic(8);
+      }
+      const stageWakeButton = document.getElementById("stage-wake");
+      stageWakeButton.addEventListener("pointerdown", (event) => {
+        if (event.pointerType !== "touch") return;
+        event.preventDefault();
+        lastWakePointerAt = Date.now();
+        wakeStageDisplay();
+      });
+      stageWakeButton.addEventListener("click", () => {
+        if (Date.now() - lastWakePointerAt < 500) return;
+        wakeStageDisplay();
       });
       document.addEventListener("pointerdown", () => {
         if (document.body.classList.contains("notes-mode")
@@ -1907,10 +2085,12 @@
       let brainVisible = true;
       let brainLastFrame = 0;
       let brainHasRendered = false;
+      let wakeBrainRendered = false;
 
       function scheduleBrainFrame() {
-        if (brainFramePending || document.hidden || !brainVisible
-          || (reducedMotion && brainHasRendered)) return;
+        const dimmed = document.body.classList.contains("stage-dimmed");
+        if (brainFramePending || document.hidden || (!dimmed && !brainVisible)
+          || (reducedMotion && (dimmed ? wakeBrainRendered : brainHasRendered))) return;
         brainFramePending = true;
         window.setTimeout(() => {
           window.requestAnimationFrame((time) => {
@@ -1921,13 +2101,19 @@
       }
 
       function drawBrain() {
-        const canvas = document.getElementById("brain");
+        const dimmed = document.body.classList.contains("stage-dimmed");
+        const canvas = document.getElementById(dimmed ? "wake-brain" : "brain");
         const frameTime = performance.now();
-        if (document.hidden || !brainVisible || (frameTime - brainLastFrame < 1000 / 15)) return;
+        const frameInterval = dimmed ? 1000 / 12 : 1000 / 15;
+        if (document.hidden || (!dimmed && !brainVisible)) return;
+        if (frameTime - brainLastFrame < frameInterval) {
+          scheduleBrainFrame();
+          return;
+        }
         brainLastFrame = frameTime;
         const context = canvas.getContext("2d");
         const bounds = canvas.getBoundingClientRect();
-        const scale = Math.min(window.devicePixelRatio || 1, 1.5);
+        const scale = Math.min(window.devicePixelRatio || 1, dimmed ? 1.15 : 1.5);
         const pixelWidth = Math.round(bounds.width * scale);
         const pixelHeight = Math.round(bounds.height * scale);
         if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -1938,9 +2124,9 @@
         const width = bounds.width;
         const height = bounds.height;
         const cx = width * .5;
-        const cy = height * .48;
-        const rx = Math.min(width * .36, height * .44);
-        const ry = height * .34;
+        const cy = dimmed ? height * .5 : height * .48;
+        const rx = dimmed ? Math.min(width * .47, height * .35) : Math.min(width * .36, height * .44);
+        const ry = dimmed ? Math.min(height * .35, width * .47) : height * .34;
         const nodes = [];
         for (let row = -5; row <= 5; row++) {
           for (let col = -6; col <= 6; col++) {
@@ -2046,7 +2232,8 @@
         context.arc(cx, cy, 2, 0, Math.PI * 2);
         context.fill();
         context.restore();
-        brainHasRendered = true;
+        if (dimmed) wakeBrainRendered = true;
+        else brainHasRendered = true;
         scheduleBrainFrame();
       }
 
@@ -2057,7 +2244,13 @@
         });
         brainObserver.observe(document.getElementById("brain"));
       }
-      document.addEventListener("visibilitychange", scheduleBrainFrame);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          brainFramePending = false;
+          return;
+        }
+        scheduleBrainFrame();
+      });
       window.addEventListener("resize", scheduleBrainFrame, { passive: true });
       renderActivity();
       populateSettings();
