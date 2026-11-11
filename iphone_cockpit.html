@@ -725,8 +725,11 @@
       background: transparent;
       color: #f4fbf9;
       font-size: clamp(22px, var(--stage-note-size, 30px), 40px);
-      line-height: 1.65;
+      line-height: 1.9;
       letter-spacing: -.015em;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      tab-size: 4;
       overflow-y: auto;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
@@ -1085,7 +1088,7 @@
           <label class="field-label notes-edit-label" for="note-body">Your words</label>
           <span class="notes-count" id="notes-count">0 words · 0 lines</span>
         </div>
-        <textarea class="notes-body" id="note-body" maxlength="50000" rows="10" spellcheck="true" autocapitalize="sentences" aria-describedby="notes-save-state"></textarea>
+        <textarea class="notes-body" id="note-body" maxlength="50000" rows="10" wrap="soft" spellcheck="true" autocapitalize="sentences" aria-describedby="notes-save-state"></textarea>
         <div class="notes-save-row">
           <button class="notes-delete-button" id="delete-note" type="button">Delete note</button>
         </div>
