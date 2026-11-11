@@ -42,6 +42,10 @@ class IPhoneCockpitServerTests(unittest.TestCase):
         self.assertIn('apple-mobile-web-app-capable" content="yes"', page)
         self.assertIn("dispatchToiOS", page)
         self.assertIn("x-success", page)
+        self.assertIn('id="intent-input"', page)
+        self.assertNotIn("placeholder=", page)
+        self.assertIn("reminder-due-wrap", page)
+        self.assertIn("SpeechRecognition", page)
 
     def test_pwa_assets_and_callback_query_are_served(self) -> None:
         for path, content_type, marker in (

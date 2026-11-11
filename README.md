@@ -39,6 +39,10 @@ The cockpit launches in standalone mode; iOS still controls Shortcuts, Home,
 microphone, and file permissions. Voice recognition is supplied by the
 browser/OS and may use online speech services, so do not speak sensitive
 information. If speech recognition is unavailable, enter the intent manually.
+The cockpit uses one shared intent field across systems; saying an intent
+selects the likely system and fills the field. Review it and tap the action
+button to hand it to iOS. This visible tap is intentional: a web page cannot
+reliably launch phone apps from background speech callbacks.
 
 ## iPhone setup
 

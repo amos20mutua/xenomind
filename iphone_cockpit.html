@@ -120,6 +120,7 @@
       border: 1px solid rgba(142, 204, 207, .16);
       border-radius: 22px;
       background:
+        radial-gradient(ellipse at 82% 50%, rgba(68, 173, 165, .16), transparent 36%),
         linear-gradient(116deg, rgba(15, 30, 39, .94), rgba(12, 19, 30, .7) 58%, rgba(23, 19, 39, .84)),
         var(--panel);
       box-shadow: 0 20px 70px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.035);
@@ -181,7 +182,30 @@
     .primary-button:hover, .secondary-button:hover, .action-button:hover, .chip-button:hover {
       transform: translateY(-1px);
     }
-    .orb-wrap { position: relative; display: grid; min-height: 120px; place-items: center; }
+    .orb-wrap { position: relative; display: grid; min-height: 120px; place-items: center; isolation: isolate; }
+    .orb-wrap::before {
+      position: absolute;
+      width: 148px;
+      height: 83px;
+      border: 1px solid rgba(117,216,239,.16);
+      border-radius: 50%;
+      box-shadow: 0 0 24px rgba(67,205,198,.08), inset 0 0 20px rgba(67,205,198,.04);
+      content: "";
+      transform: rotate(-17deg);
+      animation: orbit-drift 18s linear infinite;
+      pointer-events: none;
+    }
+    .orb-wrap::after {
+      position: absolute;
+      width: 126px;
+      height: 102px;
+      border: 1px dashed rgba(120,243,208,.14);
+      border-radius: 50%;
+      content: "";
+      transform: rotate(38deg);
+      animation: orbit-drift 28s linear infinite reverse;
+      pointer-events: none;
+    }
     .voice-node {
       position: relative;
       display: grid;
@@ -218,6 +242,7 @@
     @keyframes node-breathe { 50% { transform: scale(1.09); opacity: .8; } }
     @keyframes node-ripple { from { transform: scale(.65); opacity: .8; } to { transform: scale(1.2); opacity: 0; } }
     @keyframes node-spin { to { transform: rotate(360deg); } }
+    @keyframes orbit-drift { to { rotate: 360deg; } }
     #brain { width: 100%; height: 100%; }
     .orb-caption {
       position: absolute;
@@ -364,6 +389,24 @@
       color: #c9ffed;
       box-shadow: inset 0 0 18px rgba(120,243,208,.035);
     }
+    .intent-composer {
+      margin: 10px 0;
+      padding: 12px 14px;
+      border: 1px solid rgba(120,243,208,.18);
+      border-radius: 15px;
+      background: linear-gradient(125deg, rgba(20,40,47,.78), rgba(11,18,27,.88));
+      box-shadow: inset 0 1px rgba(255,255,255,.025);
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .intent-composer:focus-within {
+      border-color: rgba(120,243,208,.42);
+      box-shadow: 0 0 28px rgba(70,206,190,.08), inset 0 1px rgba(255,255,255,.03);
+    }
+    .composer-label { display: block; margin: 0 0 6px; color: #81a39f; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; }
+    .intent-composer .text-field { min-height: 34px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 15px; }
+    .intent-composer .text-field:focus { border: 0; }
+    .intent-composer .text-field:focus-visible { outline: none; }
+    .intent-hint { min-height: 12px; margin: 3px 0 0; color: #718b91; font-size: 9px; line-height: 1.4; }
     .chip-button {
       min-height: 30px;
       padding: 0 10px;
@@ -413,7 +456,13 @@
     .activity-empty { color: #6d8088; font-size: 10px; line-height: 1.5; }
 
     .footer-note { margin: 12px 4px 0; color: #61747c; font-size: 9px; line-height: 1.6; text-align: center; }
-    #reminder-due-wrap[hidden], #reminder-text[hidden], #reminder-label[hidden] { display: none; }
+    #intent-composer[hidden], #reminder-due-wrap[hidden] { display: none; }
+    .schedule-options { margin-top: 9px; color: #90aaa9; font-size: 9px; }
+    .schedule-options summary { width: fit-content; cursor: pointer; list-style: none; }
+    .schedule-options summary::-webkit-details-marker { display: none; }
+    .schedule-options summary::before { content: "+ "; color: var(--mint); }
+    .schedule-options[open] summary::before { content: "− "; }
+    .schedule-options .field-label { margin-top: 10px; }
     .module .field-label { margin-top: 2px; }
     .module .task-options { margin-top: 2px; }
     .chain-bar { display: flex; align-items: center; gap: 7px; margin: 10px 0; overflow-x: auto; }
@@ -494,6 +543,8 @@
       h1 { font-size: 26px; }
       .orb-wrap { min-height: 102px; margin: 0 -7px; }
       .voice-node { width: 118px; min-height: 102px; }
+      .orb-wrap::before { width: 112px; height: 68px; }
+      .orb-wrap::after { width: 108px; height: 82px; }
       .orb-caption { right: 0; bottom: -3px; font-size: 5px; letter-spacing: .03em; }
       .voice-hint { bottom: 5px; font-size: 7px; }
       .module { padding: 13px; border-radius: 16px; }
@@ -550,9 +601,9 @@
   <main class="shell" id="top">
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <div class="eyebrow"><span class="eyebrow-line"></span> PERSONAL SYSTEM / READY</div>
-        <h1 id="hero-title">Your intent.<br><span>In motion.</span></h1>
-        <p>One calm control surface. Your phone stays in control.</p>
+        <div class="eyebrow"><span class="eyebrow-line"></span> XENOMIND / PERSONAL SYSTEM</div>
+        <h1 id="hero-title">Speak once.<br><span>Keep moving.</span></h1>
+        <p>Your phone prepares the action. You stay in control.</p>
       </div>
       <div class="orb-wrap">
         <button class="voice-node" id="voice-node" type="button" aria-label="Press and hold to speak an intent" aria-describedby="voice-hint" data-state="idle">
@@ -563,18 +614,18 @@
       </div>
     </section>
 
-    <aside class="handoff-note">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.7 3.2 7.8 7.5 9.5 4.3-1.7 7.5-4.8 7.5-9.5V6L12 3Z"/><path d="m9 12 2 2 4-4"/></svg>
-      <span id="platform-note">Runs through iOS Shortcuts. Review the action on your iPhone before it runs.</span>
-    </aside>
-
     <div class="system-tabs" role="tablist" aria-label="Choose a task system">
       <button class="system-tab" id="tab-reminders" type="button" role="tab" aria-selected="true" aria-controls="reminders" tabindex="0" data-system="reminders">Reminders</button>
       <button class="system-tab" id="tab-library" type="button" role="tab" aria-selected="false" aria-controls="library" tabindex="-1" data-system="library">Photos &amp; Files</button>
       <button class="system-tab" id="tab-home" type="button" role="tab" aria-selected="false" aria-controls="home" tabindex="-1" data-system="home">Home</button>
     </div>
+    <section class="intent-composer" id="intent-composer" aria-label="Intent composer">
+      <label class="composer-label" id="intent-label" for="intent-input">YOUR NEXT REMINDER</label>
+      <input class="text-field" id="intent-input" maxlength="180" autocomplete="off" aria-describedby="intent-hint">
+      <p class="intent-hint" id="intent-hint"></p>
+    </section>
     <div class="chain-bar" role="group" aria-label="Quick intent chains">
-      <span class="chain-label">QUICK CHAINS</span>
+      <span class="chain-label">AUTOMATIONS</span>
       <button class="chain-button" type="button" data-chain="deep-work">Deep Work</button>
       <button class="chain-button" type="button" data-chain="end-of-day">End of Day Sync</button>
     </div>
@@ -596,19 +647,17 @@
             <button class="chip-button reminder-mode" type="button" data-reminder-action="list" aria-pressed="false">View list</button>
             <button class="chip-button reminder-mode" type="button" data-reminder-action="complete" aria-pressed="false">Complete</button>
           </div>
-          <label class="field-label" id="reminder-label" for="reminder-text">What should future-you remember?</label>
           <div class="field-row">
-            <input class="text-field" id="reminder-text" maxlength="180" autocomplete="off" placeholder="e.g. Bring the blueprints">
             <button class="action-button" id="send-reminder" type="button">
               Create reminder
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
             </button>
           </div>
-          <div id="reminder-due-wrap" style="margin-top:11px">
-            <label class="field-label" for="reminder-due">Optional due date and time</label>
+          <details id="reminder-due-wrap" class="schedule-options">
+            <summary>Schedule for later</summary>
+            <label class="field-label" for="reminder-due">Date and time</label>
             <input class="text-field" id="reminder-due" type="datetime-local">
-          </div>
-          <p class="helper" id="reminder-helper">iPhone: your Shortcut creates an Apple Reminder. Android: the companion keeps a local task and optional notification.</p>
+          </details>
         </div>
       </section>
 
@@ -623,18 +672,16 @@
           <span class="module-index">SYS / 02</span>
         </div>
         <div class="module-body">
-          <label class="field-label" for="library-text">Optional note for this selection</label>
-          <input class="text-field" id="library-text" maxlength="180" autocomplete="off" placeholder="e.g. Camera roll backup">
           <div class="task-options" role="group" aria-label="Library task">
             <button class="chip-button" type="button" data-library-task="photos" aria-pressed="true">Choose photos</button>
             <button class="chip-button" type="button" data-library-task="files" aria-pressed="false">Choose files</button>
             <button class="chip-button" type="button" data-library-task="organize" aria-pressed="false">Copy files</button>
           </div>
           <button class="action-button" id="send-library" type="button">
-            Continue to selection
+            Open photo picker
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
           </button>
-          <p class="helper" id="library-helper">Choose items in your phone's picker. Copy keeps originals; sharing requires a separate confirmation.</p>
+          <p class="helper" id="library-helper">Your selected items stay in control of the iOS or Android picker.</p>
         </div>
       </section>
 
@@ -649,10 +696,6 @@
           <span class="module-index" id="home-platform-label">SYS / 03</span>
         </div>
         <div class="module-body">
-          <div class="field-wrap">
-            <label class="field-label" for="home-text">Scene or accessory</label>
-            <input class="text-field" id="home-text" maxlength="100" autocomplete="off" placeholder="Select a scene, or name one">
-          </div>
           <div class="scene-grid" role="group" aria-label="HomeKit scene">
             <button class="scene-button" type="button" data-scene="Arrive Home" aria-pressed="false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11 12 4l9 7M5.5 9.5V20h13V9.5M10 20v-6h4v6"/></svg><span>Arrive home</span>
@@ -667,7 +710,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v8"/></svg><span>All off</span>
             </button>
           </div>
-          <p class="helper" id="home-helper">HomeKit is available through your iPhone Shortcut and your iOS Home permissions.</p>
+          <p class="helper" id="home-helper">Shortcuts and Home keep their own permissions and confirmations.</p>
           <button class="action-button" id="send-home" type="button">
             Activate selected scene
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
@@ -682,7 +725,7 @@
         <li class="activity-empty">Nothing sent yet. Handoffs are attempts, not proof a task completed.</li>
       </ul>
     </details>
-    <p class="footer-note">Your iPhone approves every action. XENOMIND cannot bypass iOS permissions.</p>
+    <p class="footer-note" id="permission-note">Your phone keeps the final say. Access stays behind its system permissions.</p>
   </main>
 
   <dialog id="setup-dialog" aria-labelledby="setup-title">
@@ -735,6 +778,10 @@
       const settingsDialog = document.getElementById("setup-dialog");
       const toast = document.getElementById("toast");
       const activityList = document.getElementById("activity-list");
+      const intentInput = document.getElementById("intent-input");
+      const intentComposer = document.getElementById("intent-composer");
+      const intentLabel = document.getElementById("intent-label");
+      const intentHint = document.getElementById("intent-hint");
       const isAndroid = /\bAndroid\b/i.test(navigator.userAgent);
       const isAppleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent)
         || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -748,12 +795,9 @@
       document.getElementById("platform-state").textContent = isAndroid
         ? "ANDROID COMPANION"
         : isAppleMobile ? "APPLE SHORTCUTS" : "PHONE HANDOFF";
-      document.getElementById("reminder-helper").textContent = isAndroid
-        ? "Android saves these in the companion app and can schedule a local notification."
-        : "iPhone: your Shortcut creates an Apple Reminder. Android: the companion keeps a local task and optional notification.";
       document.getElementById("library-helper").textContent = isAndroid
-        ? "Android opens its native picker. Copy files asks for a destination and keeps originals; sharing needs a separate confirmation."
-        : "Your iPhone Shortcut asks you to choose items. Configure Copy files to save a copy; review any share or change before confirming.";
+        ? "Android opens its system picker; copies keep the original items."
+        : "Your iPhone Shortcut opens the system picker for items you choose.";
 
       if (isAndroid) {
         const home = document.getElementById("home");
@@ -766,15 +810,11 @@
         document.getElementById("home-platform-label").textContent = "iOS ONLY";
         document.getElementById("home-helper").textContent =
           "Apple HomeKit works only through Apple Home on iPhone. This module is disabled on Android.";
-        document.getElementById("platform-note").textContent =
-          "Android handoffs open the Xenomind companion. Reminders stay local to that app; photo and file access begins in Android's picker. HomeKit is iPhone-only.";
-      } else if (isAppleMobile) {
-        document.getElementById("platform-note").textContent =
-          "Each action opens a named iOS Shortcut. Review or cancel it there; iOS permissions and confirmations still apply. This page does not directly access phone data.";
-      } else if (!isAppleMobile) {
-        document.getElementById("platform-note").textContent =
-          "Open this page on your iPhone or Android phone to hand actions to its on-device app. The desktop preview cannot execute phone actions.";
+        document.querySelector(".chain-bar").hidden = true;
       }
+      document.getElementById("permission-note").textContent = isAndroid
+        ? "Reminders stay in XENOMIND. Photos and files are chosen in Android's picker."
+        : "Shortcuts and iOS pickers keep access permissioned. You choose what each action can do.";
 
       const safariOnIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
         && /Safari/i.test(navigator.userAgent)
@@ -871,6 +911,11 @@
         files: "Choose files",
         organize: "Copy files",
         scene: "Activate scene"
+      };
+      const libraryButtonLabels = {
+        photos: "Open photo picker",
+        files: "Open file picker",
+        organize: "Choose files to copy"
       };
 
       function dispatchToiOS(category, actionType, noteText, options = {}) {
@@ -1094,12 +1139,20 @@
       systemTabs.forEach((tab) => {
         tab.addEventListener("click", () => {
           const wasSelected = tab.getAttribute("aria-selected") === "true";
+          if (!wasSelected) {
+            intentInput.value = "";
+            selectedScene = "";
+            document.querySelectorAll("[data-scene]").forEach((button) =>
+              button.setAttribute("aria-pressed", "false")
+            );
+          }
           systemTabs.forEach((item) => {
             const selected = item === tab;
             item.setAttribute("aria-selected", String(selected));
             item.tabIndex = selected ? 0 : -1;
             document.getElementById(item.getAttribute("aria-controls")).hidden = !selected;
           });
+          refreshComposer();
           if (!wasSelected) haptic();
         });
         tab.addEventListener("keydown", (event) => {
@@ -1117,12 +1170,41 @@
       const currentHour = new Date().getHours();
       const timeOfDay = currentHour < 12 ? "morning"
         : currentHour < 17 ? "afternoon" : "evening";
-      document.getElementById("reminder-text").placeholder = timeOfDay === "morning"
-        ? "e.g. Plan today's first step"
-        : timeOfDay === "evening" ? "e.g. Set tomorrow's first reminder" : "e.g. Bring the blueprints";
-      document.getElementById("library-text").placeholder = timeOfDay === "evening"
-        ? "e.g. Back up today's camera roll"
-        : timeOfDay === "morning" ? "e.g. Find a photo from last night" : "e.g. Camera roll backup";
+      const timeHints = {
+        reminders: {
+          morning: "Your day is starting. Capture the first thing on your mind.",
+          afternoon: "Add a reminder, or choose a timer chain.",
+          evening: "Set up tomorrow, or choose a wind-down chain."
+        },
+        library: {
+          morning: "Choose photos or files. XENOMIND only sees what you select.",
+          afternoon: "Choose what to open or copy from your library.",
+          evening: "Choose photos to back up, or files to arrange."
+        },
+        home: {
+          morning: "Set the tone for the day.",
+          afternoon: "Choose a scene, then let Home handle it.",
+          evening: "Set an evening scene with one tap."
+        }
+      };
+
+      function refreshComposer() {
+        const activeTab = systemTabs.find((tab) => tab.getAttribute("aria-selected") === "true");
+        const system = activeTab ? activeTab.dataset.system : "reminders";
+        const reminderNeedsText = system !== "reminders" || selectedReminderAction !== "list";
+        intentComposer.hidden = !reminderNeedsText;
+        if (system === "reminders") {
+          intentLabel.textContent = selectedReminderAction === "complete"
+            ? "REMINDER TO FIND" : "YOUR NEXT REMINDER";
+        } else if (system === "library") {
+          intentLabel.textContent = "OPTIONAL REQUEST";
+        } else {
+          intentLabel.textContent = "SCENE OR ACCESSORY";
+        }
+        intentHint.textContent = timeHints[system][timeOfDay];
+      }
+
+      refreshComposer();
 
       document.querySelectorAll("[data-chain]").forEach((button) => {
         button.addEventListener("click", () => {
@@ -1156,27 +1238,38 @@
 
       function placeVoiceIntent(transcript) {
         const words = transcript.toLowerCase();
+        const cleaned = transcript.replace(/^\s*(please\s+)?(remind me to|add a reminder to|remember to|set a reminder to|find|open|show|back up|backup|copy|turn on|turn off|set|activate)\s+/i, "").trim();
         let category;
         if (/\b(photo|photos|picture|pictures|camera|file|files|backup|back up|copy)\b/.test(words)) {
           category = "library";
           const task = /\b(copy|backup|back up)\b/.test(words) ? "organize"
             : /\b(file|files)\b/.test(words) ? "files" : "photos";
+          document.getElementById("tab-library").click();
           document.querySelector(`[data-library-task="${task}"]`).click();
-          document.getElementById("library-text").value = transcript;
+          intentInput.value = cleaned || transcript;
         } else if (/\b(home|light|lights|scene|focus|evening)\b/.test(words)) {
           if (isAndroid) {
             announce("HomeKit is iPhone-only. The Android companion cannot control Apple Home.");
             return;
           }
           category = "home";
-          document.getElementById("home-text").value = transcript;
-          selectedScene = "";
-          document.querySelectorAll("[data-scene]").forEach((button) =>
-            button.setAttribute("aria-pressed", "false")
+          document.getElementById("tab-home").click();
+          const sceneButton = [...document.querySelectorAll("[data-scene]")].find((button) =>
+            words.includes(button.dataset.scene.toLowerCase())
+              || (button.dataset.scene === "Deep Focus" && /\b(deep work|focus)\b/.test(words))
           );
+          if (sceneButton) sceneButton.click();
+          else {
+            selectedScene = "";
+            intentInput.value = cleaned || transcript;
+            document.querySelectorAll("[data-scene]").forEach((button) =>
+              button.setAttribute("aria-pressed", "false")
+            );
+          }
         } else {
           category = "reminders";
-          document.getElementById("reminder-text").value = transcript;
+          document.getElementById("tab-reminders").click();
+          intentInput.value = cleaned || transcript;
           document.getElementById("reminder-due").value = "";
           document.querySelector('[data-reminder-action="create"]').click();
         }
@@ -1190,7 +1283,7 @@
         if (recognitionStarted) return;
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!Recognition) {
-          announce("Voice input is not supported by this browser. Use the note field instead.");
+          announce("Voice input is not supported here. Type the intent or choose an action.");
           return;
         }
         announce("Voice input uses the browser's speech service; avoid sensitive details.");
@@ -1243,6 +1336,18 @@
         if (event.code === "Space") endVoiceCapture();
       });
 
+      intentInput.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const activeTab = systemTabs.find((tab) => tab.getAttribute("aria-selected") === "true");
+        const actionButton = activeTab && activeTab.dataset.system === "library"
+          ? document.getElementById("send-library")
+          : activeTab && activeTab.dataset.system === "home"
+            ? document.getElementById("send-home")
+            : document.getElementById("send-reminder");
+        actionButton.click();
+      });
+
       document.getElementById("dismiss-install").addEventListener("click", () => {
         document.getElementById("install-banner").classList.remove("visible");
         try {
@@ -1258,20 +1363,19 @@
           document.querySelectorAll("[data-reminder-action]").forEach((option) => {
             option.setAttribute("aria-pressed", String(option === button));
           });
-          const needsText = selectedReminderAction !== "list";
-          document.getElementById("reminder-text").hidden = !needsText;
-          document.getElementById("reminder-label").hidden = !needsText;
           document.getElementById("reminder-due-wrap").hidden = selectedReminderAction !== "create";
           document.getElementById("send-reminder").textContent =
             selectedReminderAction === "list" ? "Open task list"
               : selectedReminderAction === "complete" ? "Find task" : "Create reminder";
+          document.getElementById("reminder-due-wrap").open = false;
+          refreshComposer();
         });
       });
 
       document.getElementById("send-reminder").addEventListener("click", () => {
-        const title = document.getElementById("reminder-text").value.trim();
+        const title = intentInput.value.trim();
         if (selectedReminderAction !== "list" && !title) {
-          document.getElementById("reminder-text").focus();
+          intentInput.focus();
           announce(selectedReminderAction === "complete"
             ? "Enter the reminder title to find." : "Add a reminder title first.");
           return;
@@ -1300,10 +1404,12 @@
           document.querySelectorAll("[data-library-task]").forEach((option) => {
             option.setAttribute("aria-pressed", String(option === button));
           });
+          document.getElementById("send-library").textContent = libraryButtonLabels[selectedLibraryTask];
         });
       });
+
       document.getElementById("send-library").addEventListener("click", () => {
-        const request = document.getElementById("library-text").value.trim();
+        const request = intentInput.value.trim();
         openHandoff("library", selectedLibraryTask, request,
           actionLabels[selectedLibraryTask] + (request ? ": " + request : ""),
           "",
@@ -1313,22 +1419,30 @@
       document.querySelectorAll("[data-scene]").forEach((button) => {
         button.addEventListener("click", () => {
           selectedScene = button.dataset.scene;
-          document.getElementById("home-text").value = selectedScene;
+          intentInput.value = selectedScene;
+          document.getElementById("send-home").textContent = "Activate " + selectedScene;
           document.querySelectorAll("[data-scene]").forEach((option) => {
             option.setAttribute("aria-pressed", String(option === button));
           });
         });
       });
-      document.getElementById("home-text").addEventListener("input", () => {
-        selectedScene = "";
-        document.querySelectorAll("[data-scene]").forEach((button) => button.setAttribute("aria-pressed", "false"));
+      intentInput.addEventListener("input", () => {
+        const currentScene = [...document.querySelectorAll("[data-scene]")].find((button) =>
+          button.dataset.scene === intentInput.value.trim()
+        );
+        selectedScene = currentScene ? currentScene.dataset.scene : "";
+        document.querySelectorAll("[data-scene]").forEach((button) =>
+          button.setAttribute("aria-pressed", String(button === currentScene))
+        );
+        document.getElementById("send-home").textContent = selectedScene
+          ? "Activate " + selectedScene : "Activate selected scene";
       });
       document.getElementById("send-home").addEventListener("click", () => {
         if (isAndroid) {
           announce("HomeKit is not available on Android.");
           return;
         }
-        const scene = document.getElementById("home-text").value.trim();
+        const scene = selectedScene || intentInput.value.trim();
         if (!scene) {
           announce("Choose a scene or enter its name.");
           return;
