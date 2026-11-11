@@ -90,7 +90,9 @@ Choose **Notes** for local drafts grouped as **Lyrics**, **Scripture**, or
 **Notes**. Create and switch between drafts, type or hold the neural sphere to
 dictate, and see live word and line counts while you write. **Stage view** is a
 large, read-only presentation surface with adjustable text size for lyrics and
-verses.
+verses. Choose **Edit note** in Stage view to return to writing and paste or
+dictate more text. The stage reader fits the phone viewport and scrolls long
+notes within the reading area.
 Drafts autosave in this browser's local storage; they are not synced to another
 device. Anyone with access to this browser profile may be able to read them.
 In Notes, the enlarged neural sphere floats gently above the editor; this is a

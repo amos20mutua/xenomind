@@ -678,7 +678,11 @@
       position: fixed;
       z-index: 35;
       inset: 0;
-      overflow-y: auto;
+      display: flex;
+      height: 100vh;
+      height: 100dvh;
+      flex-direction: column;
+      overflow: hidden;
       padding: calc(env(safe-area-inset-top) + 10px) 18px calc(env(safe-area-inset-bottom) + 14px);
       border: 0;
       border-radius: 0;
@@ -703,8 +707,17 @@
     .notes-panel.stage-mode .notes-stage-info > span { flex: 0 0 auto; }
     .notes-panel.stage-mode .notes-stage-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .notes-panel.stage-mode .notes-neural-copy p { display: none; }
+    .notes-panel.stage-mode .notes-neural {
+      position: relative;
+      top: auto;
+      flex: 0 0 clamp(130px, 20vh, 158px);
+      min-height: 0;
+    }
+    .notes-panel.stage-mode .notes-stage-info { flex: 0 0 auto; }
     .notes-panel.stage-mode .notes-body {
-      min-height: 56vh;
+      flex: 1 1 0;
+      min-height: 0;
+      height: auto;
       resize: none;
       padding: 20px 4px;
       border: 0;
@@ -714,6 +727,9 @@
       font-size: clamp(22px, var(--stage-note-size, 30px), 40px);
       line-height: 1.65;
       letter-spacing: -.015em;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }
     .notes-panel.stage-mode .notes-body:focus { box-shadow: none; }
     .notes-panel.stage-mode .notes-neural { margin-bottom: 4px; }
@@ -852,7 +868,6 @@
       .notes-panel.stage-mode .notes-stage-info { gap: 7px; }
       .notes-panel.stage-mode .notes-stage-info strong { font-size: 11px; }
       .notes-panel.stage-mode { padding-inline: 14px; }
-      .notes-panel.stage-mode .notes-body { min-height: 58vh; }
     }
     @media (max-width: 370px) {
       .shell { width: calc(100% - 20px); }
@@ -1063,7 +1078,7 @@
             <button id="stage-text-smaller" type="button" aria-label="Make stage text smaller">A−</button>
             <output id="stage-text-size" aria-live="polite">30</output>
             <button id="stage-text-larger" type="button" aria-label="Make stage text larger">A+</button>
-            <button class="notes-stage-button" id="exit-stage" type="button">Exit stage</button>
+            <button class="notes-stage-button" id="edit-note" type="button">Edit note</button>
           </div>
         </div>
         <div class="notes-edit-head">
@@ -1419,7 +1434,11 @@
         announce("Note deleted. Your remaining notes stay on this device.");
       });
       document.getElementById("toggle-stage").addEventListener("click", () => setStageMode(true));
-      document.getElementById("exit-stage").addEventListener("click", () => setStageMode(false));
+      document.getElementById("edit-note").addEventListener("click", () => {
+        setStageMode(false);
+        noteBody.focus();
+        haptic();
+      });
       setStageTextSize(stageTextSize);
       document.getElementById("stage-text-smaller").addEventListener("click", () => {
         setStageTextSize(stageTextSize - 2);
@@ -1856,7 +1875,7 @@
         const activeTab = systemTabs.find((tab) => tab.getAttribute("aria-selected") === "true");
         if (activeTab && activeTab.dataset.system === "notes") {
           if (noteBody.readOnly) {
-            announce("Exit Stage view before dictating into this note.");
+            announce("Choose Edit note before dictating into this note.");
             return;
           }
           const separator = noteBody.value && !noteBody.value.endsWith("\n") ? "\n" : "";
