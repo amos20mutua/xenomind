@@ -75,6 +75,20 @@ returned; it does not independently verify every device action. The last five
 requests and their payloads are stored only in this browser's local storage.
 Replay launches a new callback-tracked instance of the same request.
 
+## Live notes and stage mode
+
+Choose **Notes** for local drafts grouped as **Lyrics**, **Scripture**, or
+**Notes**. Create and switch between drafts, type or hold the neural sphere to
+dictate, and use **Stage view** for a large, read-only presentation surface.
+Drafts autosave in this browser's local storage; they are not synced to another
+device. Anyone with access to this browser profile may be able to read them.
+
+After 60 seconds without interaction, XENOMIND dims its own display; tap
+**Tap to wake** to restore it. A web app cannot change the iPhone's hardware
+brightness or override iOS Auto-Lock, so those remain controlled by iOS
+Settings. The sphere redraws at up to 15 frames per second, pauses off-screen
+and in the background, and respects the device's reduced-motion preference.
+
 ## Android companion
 
 The Android source is in [android](./android). Open that folder in Android

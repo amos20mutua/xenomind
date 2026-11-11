@@ -309,6 +309,8 @@
     .module.reminders { --glow: rgba(120, 243, 208, .11); }
     .module.library { --glow: rgba(198, 155, 255, .13); }
     .module.home { --glow: rgba(255, 203, 136, .12); grid-column: 1 / -1; }
+    .module.notes-panel { --glow: rgba(117, 216, 239, .13); overflow: visible; }
+    .module.notes-panel::after, .chain-bar[hidden] { display: none; }
     .module[hidden] { display: none; }
     .module.unavailable { opacity: .48; }
     .module.unavailable .action-button, .module.unavailable .scene-button { cursor: not-allowed; }
@@ -366,7 +368,7 @@
     .task-options { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 12px; }
     .system-tabs {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 5px;
       padding: 4px;
       border: 1px solid var(--line);
@@ -436,6 +438,168 @@
     .scene-button:hover, .scene-button[aria-pressed="true"] { border-color: rgba(255,203,136,.43); background: rgba(255,203,136,.08); color: #ffe0af; }
     .scene-button svg { width: 15px; height: 15px; color: var(--amber); }
     .scene-button span { font-size: 9px; }
+
+    .notes-panel { padding: 0 16px 16px; }
+    .notes-neural {
+      position: sticky;
+      z-index: 12;
+      top: calc(66px + env(safe-area-inset-top));
+      display: grid;
+      min-height: 136px;
+      grid-template-columns: minmax(0, 1fr) 166px;
+      align-items: center;
+      gap: 8px;
+      margin: 0 -16px 14px;
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(117,216,239,.15);
+      background: rgba(10,16,24,.94);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .notes-neural-copy { position: relative; z-index: 1; }
+    .notes-neural-copy h2 { margin: 9px 0 5px; font-size: 20px; letter-spacing: -.04em; }
+    .notes-neural-copy p { max-width: 260px; margin: 0; color: #9aadb3; font-size: 10px; line-height: 1.5; }
+    .notes-orb-slot { display: grid; min-width: 0; place-items: center; }
+    .notes-neural .orb-wrap { width: 158px; min-height: 128px; margin: 0; }
+    .notes-neural .voice-node { width: 150px; min-height: 128px; }
+    .notes-neural .orb-wrap::before { width: 150px; height: 86px; }
+    .notes-neural .orb-wrap::after { width: 136px; height: 108px; }
+    .notes-neural .orb-caption { bottom: 0; font-size: 6px; }
+    .notes-neural .voice-hint { bottom: 6px; font-size: 7px; }
+    .notes-toolbar, .notes-meta, .notes-stage-bar {
+      display: flex;
+      align-items: end;
+      gap: 9px;
+      margin: 12px 0;
+    }
+    .notes-toolbar { align-items: center; }
+    .notes-select-wrap { flex: 1; min-width: 0; }
+    .notes-toolbar .select-field { min-height: 42px; }
+    .notes-meta > * { flex: 1; min-width: 0; }
+    .notes-meta .text-field, .notes-meta .select-field { min-height: 43px; }
+    .notes-stage-bar { align-items: center; justify-content: space-between; margin: 14px 0 8px; }
+    .notes-stage-bar > span, .notes-save-state {
+      color: #78949d;
+      font: 8px ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .notes-stage-button, .notes-delete-button {
+      min-height: 37px;
+      padding: 0 12px;
+      border: 1px solid rgba(117,216,239,.22);
+      border-radius: 11px;
+      background: rgba(117,216,239,.07);
+      color: #b7edf1;
+      font-size: 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .notes-delete-button { border-color: rgba(255,147,180,.2); background: rgba(255,147,180,.045); color: #e6aabe; }
+    .notes-body {
+      display: block;
+      width: 100%;
+      min-height: min(52vh, 480px);
+      resize: vertical;
+      padding: 18px;
+      border: 1px solid rgba(117,216,239,.18);
+      border-radius: 15px;
+      background:
+        linear-gradient(rgba(117,216,239,.035) 1px, transparent 1px) 0 0 / 100% 2.1em,
+        rgba(4,10,16,.68);
+      color: #eef7f6;
+      font: 16px/2.1 ui-rounded, "Avenir Next", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: .015em;
+      outline: none;
+      tab-size: 2;
+      white-space: pre-wrap;
+    }
+    .notes-body:focus { border-color: rgba(117,216,239,.5); box-shadow: 0 0 24px rgba(117,216,239,.08); }
+    .notes-save-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+    .notes-save-state { font-size: 8px; letter-spacing: .08em; }
+    .notes-save-state[data-state="saving"] { color: var(--amber); }
+    .notes-save-state[data-state="error"] { color: var(--pink); }
+    .notes-stage-info { display: none; }
+    .stage-wake {
+      position: fixed;
+      z-index: 60;
+      inset: 0;
+      display: none;
+      width: 100%;
+      min-height: 100%;
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+      border: 0;
+      background: rgba(2,5,9,.62);
+      color: #d8e6e8;
+      cursor: pointer;
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+    }
+    .stage-wake span {
+      padding: 12px 17px;
+      border: 1px solid rgba(120,243,208,.3);
+      border-radius: 999px;
+      background: rgba(10,20,27,.88);
+      color: var(--mint);
+      font: 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .16em;
+    }
+    body.stage-dimmed > .stage-wake { display: flex; }
+    body.notes-mode .hero { display: none; }
+    body.android-device .system-tabs { grid-template-columns: repeat(3, 1fr); }
+    body.stage-view-active { overflow: hidden; }
+    body.stage-view-active .topbar { visibility: hidden; }
+    body.stage-view-active main { padding: 0; }
+    body.stage-view-active .notes-neural { top: 0; }
+    body.stage-view-active .system-tabs,
+    body.stage-view-active #intent-composer,
+    body.stage-view-active .chain-bar,
+    body.stage-view-active .module-grid > .module:not(.notes-panel),
+    body.stage-view-active .activity-panel,
+    body.stage-view-active .footer-note { display: none !important; }
+    body.stage-view-active .notes-panel {
+      position: fixed;
+      z-index: 35;
+      inset: 0;
+      overflow-y: auto;
+      padding: calc(env(safe-area-inset-top) + 10px) 18px calc(env(safe-area-inset-bottom) + 14px);
+      border: 0;
+      border-radius: 0;
+      background:
+        radial-gradient(ellipse at 82% 13%, rgba(32,113,117,.15), transparent 30rem),
+        var(--void);
+    }
+    .notes-panel.stage-mode .notes-toolbar,
+    .notes-panel.stage-mode .notes-meta,
+    .notes-panel.stage-mode .notes-stage-bar,
+    .notes-panel.stage-mode .notes-edit-label,
+    .notes-panel.stage-mode .notes-save-row { display: none; }
+    .notes-panel.stage-mode .notes-stage-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 12px 0 4px;
+    }
+    .notes-panel.stage-mode .notes-stage-info strong { font-size: 13px; font-weight: 600; }
+    .notes-panel.stage-mode .notes-stage-info span { color: var(--cyan); font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; }
+    .notes-panel.stage-mode .notes-neural-copy p { display: none; }
+    .notes-panel.stage-mode .notes-body {
+      min-height: 56vh;
+      resize: none;
+      padding: 20px 4px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: #f4fbf9;
+      font-size: clamp(22px, 5.7vw, 31px);
+      line-height: 1.65;
+      letter-spacing: -.015em;
+    }
+    .notes-panel.stage-mode .notes-body:focus { box-shadow: none; }
+    .notes-panel.stage-mode .notes-neural { margin-bottom: 4px; }
 
     .activity-panel {
       margin-top: 11px;
@@ -541,6 +705,14 @@
       .hero-copy > p { max-width: 235px; font-size: 10px; }
       .eyebrow { font-size: 8px; letter-spacing: .12em; }
       h1 { font-size: 26px; }
+      .notes-neural { top: calc(54px + env(safe-area-inset-top)); min-height: 126px; grid-template-columns: minmax(0, 1fr) 146px; gap: 2px; margin-inline: -13px; padding-inline: 12px; }
+      .notes-neural-copy h2 { font-size: 18px; }
+      .notes-neural-copy p { font-size: 9px; }
+      .notes-neural .orb-wrap { width: 144px; min-height: 120px; }
+      .notes-neural .voice-node { width: 138px; min-height: 118px; }
+      .notes-neural .orb-wrap::before { width: 138px; height: 78px; }
+      .notes-neural .orb-wrap::after { width: 124px; height: 96px; }
+      .system-tab { padding-inline: 3px; font-size: 8px; }
       .orb-wrap { min-height: 102px; margin: 0 -7px; }
       .voice-node { width: 118px; min-height: 102px; }
       .orb-wrap::before { width: 112px; height: 68px; }
@@ -555,6 +727,11 @@
       .field-row .action-button { width: 100%; }
       .scene-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .activity-panel { padding: 10px 12px; }
+      .notes-panel { padding: 0 13px 14px; }
+      .notes-meta { gap: 7px; }
+      .notes-body { min-height: 48vh; padding: 14px; font-size: 15px; }
+      .notes-panel.stage-mode { padding-inline: 14px; }
+      .notes-panel.stage-mode .notes-body { min-height: 58vh; }
     }
     @media (max-width: 370px) {
       .shell { width: calc(100% - 20px); }
@@ -562,6 +739,11 @@
       .brand-sub { font-size: 8px; }
       .link-state { font-size: 7px; }
       .hero { padding-inline: 18px; }
+      .notes-neural { grid-template-columns: minmax(0, 1fr) 128px; }
+      .notes-neural .orb-wrap { width: 128px; }
+      .notes-neural .voice-node { width: 122px; }
+      .notes-neural .orb-wrap::before { width: 124px; }
+      .notes-neural .orb-wrap::after { width: 112px; }
       .field-row { grid-template-columns: 1fr; }
       .field-row .action-button { width: 100%; }
     }
@@ -618,6 +800,7 @@
       <button class="system-tab" id="tab-reminders" type="button" role="tab" aria-selected="true" aria-controls="reminders" tabindex="0" data-system="reminders">Reminders</button>
       <button class="system-tab" id="tab-library" type="button" role="tab" aria-selected="false" aria-controls="library" tabindex="-1" data-system="library">Photos &amp; Files</button>
       <button class="system-tab" id="tab-home" type="button" role="tab" aria-selected="false" aria-controls="home" tabindex="-1" data-system="home">Home</button>
+      <button class="system-tab" id="tab-notes" type="button" role="tab" aria-selected="false" aria-controls="notes" tabindex="-1" data-system="notes">Notes</button>
     </div>
     <section class="intent-composer" id="intent-composer" aria-label="Intent composer">
       <label class="composer-label" id="intent-label" for="intent-input">YOUR NEXT REMINDER</label>
@@ -717,6 +900,53 @@
           </button>
         </div>
       </section>
+
+      <section class="module notes-panel" id="notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
+        <div class="notes-neural">
+          <div class="notes-neural-copy">
+            <div class="eyebrow"><span class="eyebrow-line"></span> XENOMIND / LIVE SCRIPT</div>
+            <h2>Words in orbit.</h2>
+            <p>Your lyrics and verses stay on this device. Hold the sphere to dictate.</p>
+          </div>
+          <div class="notes-orb-slot" id="notes-orb-slot"></div>
+        </div>
+        <div class="notes-toolbar">
+          <div class="notes-select-wrap">
+            <label class="field-label" for="notes-select">Your notes</label>
+            <select class="select-field" id="notes-select" aria-label="Choose a saved note"></select>
+          </div>
+          <button class="notes-stage-button" id="new-note" type="button">New note</button>
+        </div>
+        <div class="notes-meta">
+          <div>
+            <label class="field-label" for="note-title">Title</label>
+            <input class="text-field" id="note-title" maxlength="100" autocomplete="off" aria-label="Note title">
+          </div>
+          <div>
+            <label class="field-label" for="note-category">Collection</label>
+            <select class="select-field" id="note-category">
+              <option value="Lyrics">Lyrics</option>
+              <option value="Scripture">Scripture</option>
+              <option value="Notes">Notes</option>
+            </select>
+          </div>
+        </div>
+        <div class="notes-stage-bar">
+          <span>LOCAL / AUTOSAVE</span>
+          <button class="notes-stage-button" id="toggle-stage" type="button" aria-pressed="false">Stage view</button>
+        </div>
+        <div class="notes-stage-info">
+          <strong id="stage-note-title"></strong>
+          <span id="stage-note-category"></span>
+          <button class="notes-stage-button" id="exit-stage" type="button">Exit stage</button>
+        </div>
+        <label class="field-label notes-edit-label" for="note-body">Note text</label>
+        <textarea class="notes-body" id="note-body" maxlength="50000" rows="10" spellcheck="true" autocapitalize="sentences" aria-describedby="notes-save-state"></textarea>
+        <div class="notes-save-row">
+          <span class="notes-save-state" id="notes-save-state" role="status" aria-live="polite" data-state="saved">SAVED ON THIS DEVICE</span>
+          <button class="notes-delete-button" id="delete-note" type="button">Delete note</button>
+        </div>
+      </section>
     </div>
 
     <details class="activity-panel">
@@ -762,6 +992,7 @@
       </div>
     </form>
   </dialog>
+  <button class="stage-wake" id="stage-wake" type="button" aria-label="Wake the dimmed stage display"><span>TAP TO WAKE</span></button>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -775,9 +1006,22 @@
       };
       const storageKey = "xenomind-shortcut-names-v1";
       const activityKey = "xenomind-handoffs-v1";
+      const notesKey = "xenomind-stage-notes-v1";
       const settingsDialog = document.getElementById("setup-dialog");
       const toast = document.getElementById("toast");
       const activityList = document.getElementById("activity-list");
+      const notesPanel = document.getElementById("notes");
+      const notesSelect = document.getElementById("notes-select");
+      const noteTitle = document.getElementById("note-title");
+      const noteCategory = document.getElementById("note-category");
+      const noteBody = document.getElementById("note-body");
+      const notesSaveState = document.getElementById("notes-save-state");
+      const neuralOrb = document.querySelector(".orb-wrap");
+      let stageNotes = [];
+      let activeNoteId = "";
+      let notesStorageFailed = false;
+      let noteSaveTimer;
+      let stageIdleTimer;
       const intentInput = document.getElementById("intent-input");
       const intentComposer = document.getElementById("intent-composer");
       const intentLabel = document.getElementById("intent-label");
@@ -795,6 +1039,7 @@
       document.getElementById("platform-state").textContent = isAndroid
         ? "ANDROID COMPANION"
         : isAppleMobile ? "APPLE SHORTCUTS" : "PHONE HANDOFF";
+      if (isAndroid) document.body.classList.add("android-device");
       document.getElementById("library-helper").textContent = isAndroid
         ? "Android opens its system picker; copies keep the original items."
         : "Your iPhone Shortcut opens the system picker for items you choose.";
@@ -848,6 +1093,195 @@
           return fallback;
         }
       }
+
+      function createNote(category = "Lyrics") {
+        return {
+          id: window.crypto && typeof window.crypto.randomUUID === "function"
+            ? window.crypto.randomUUID()
+            : Date.now().toString(36) + Math.random().toString(36).slice(2),
+          title: "",
+          category,
+          body: "",
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      function loadStageNotes() {
+        try {
+          const raw = localStorage.getItem(notesKey);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          const valid = Array.isArray(parsed) && parsed.every((note) =>
+            note && typeof note.id === "string" && typeof note.title === "string"
+            && ["Lyrics", "Scripture", "Notes"].includes(note.category)
+            && typeof note.body === "string" && typeof note.updatedAt === "string"
+          );
+          if (!valid) throw new TypeError("Saved notes have an unexpected format.");
+          return parsed;
+        } catch (error) {
+          notesStorageFailed = true;
+          console.error("XENOMIND stage notes could not be loaded:", error);
+          announce("Saved notes could not be read. New edits will stay in this session only.");
+          return [];
+        }
+      }
+
+      function activeNote() {
+        return stageNotes.find((note) => note.id === activeNoteId) || null;
+      }
+
+      function noteDisplayTitle(note) {
+        return note.title.trim() || "Untitled " + note.category.toLowerCase();
+      }
+
+      function renderNoteOptions() {
+        notesSelect.replaceChildren();
+        stageNotes.forEach((note) => {
+          const option = document.createElement("option");
+          option.value = note.id;
+          option.textContent = noteDisplayTitle(note) + " · " + note.category;
+          option.selected = note.id === activeNoteId;
+          notesSelect.append(option);
+        });
+      }
+
+      function renderActiveNote() {
+        const note = activeNote();
+        if (!note) return;
+        renderNoteOptions();
+        noteTitle.value = note.title;
+        noteCategory.value = note.category;
+        noteBody.value = note.body;
+        document.getElementById("stage-note-title").textContent = noteDisplayTitle(note);
+        document.getElementById("stage-note-category").textContent = note.category;
+      }
+
+      function setNotesSaveState(state, message) {
+        notesSaveState.dataset.state = state;
+        notesSaveState.textContent = message;
+      }
+
+      function persistStageNotes() {
+        clearTimeout(noteSaveTimer);
+        if (notesStorageFailed) {
+          setNotesSaveState("error", "NOT SAVED · BROWSER STORAGE UNAVAILABLE");
+          return;
+        }
+        try {
+          localStorage.setItem(notesKey, JSON.stringify(stageNotes));
+          setNotesSaveState("saved", "SAVED ON THIS DEVICE");
+        } catch (error) {
+          notesStorageFailed = true;
+          console.error("XENOMIND stage notes could not be saved:", error);
+          setNotesSaveState("error", "SAVE FAILED · CHECK DEVICE STORAGE");
+          announce("This note could not be saved. Check available browser storage.");
+        }
+      }
+
+      function queueNoteSave() {
+        const note = activeNote();
+        if (!note) return;
+        note.title = noteTitle.value;
+        note.category = noteCategory.value;
+        note.body = noteBody.value;
+        note.updatedAt = new Date().toISOString();
+        document.getElementById("stage-note-title").textContent = noteDisplayTitle(note);
+        document.getElementById("stage-note-category").textContent = note.category;
+        renderNoteOptions();
+        setNotesSaveState("saving", "SAVING ON THIS DEVICE");
+        clearTimeout(noteSaveTimer);
+        noteSaveTimer = window.setTimeout(persistStageNotes, 350);
+        resetStageIdleTimer();
+      }
+
+      function resetStageIdleTimer() {
+        clearTimeout(stageIdleTimer);
+        if (!document.body.classList.contains("notes-mode")) return;
+        document.body.classList.remove("stage-dimmed");
+        if (document.hidden) return;
+        stageIdleTimer = window.setTimeout(() => {
+          if (document.body.classList.contains("notes-mode")) {
+            document.body.classList.add("stage-dimmed");
+          }
+        }, 60000);
+      }
+
+      function setStageMode(enabled) {
+        notesPanel.classList.toggle("stage-mode", enabled);
+        document.body.classList.toggle("stage-view-active", enabled);
+        noteBody.readOnly = enabled;
+        document.getElementById("toggle-stage").setAttribute("aria-pressed", String(enabled));
+        if (enabled) noteBody.blur();
+        resetStageIdleTimer();
+      }
+
+      function setNotesMode(enabled) {
+        document.body.classList.toggle("notes-mode", enabled);
+        if (enabled) {
+          document.getElementById("notes-orb-slot").append(neuralOrb);
+          resetStageIdleTimer();
+        } else {
+          document.querySelector(".hero").append(neuralOrb);
+          clearTimeout(stageIdleTimer);
+          document.body.classList.remove("stage-dimmed");
+          setStageMode(false);
+        }
+        scheduleBrainFrame();
+      }
+
+      stageNotes = loadStageNotes();
+      if (stageNotes.length === 0) stageNotes.push(createNote());
+      activeNoteId = stageNotes[0].id;
+      renderActiveNote();
+      document.getElementById("new-note").addEventListener("click", () => {
+        persistStageNotes();
+        const note = createNote(noteCategory.value);
+        stageNotes.unshift(note);
+        activeNoteId = note.id;
+        renderActiveNote();
+        persistStageNotes();
+        noteTitle.focus();
+        resetStageIdleTimer();
+      });
+      notesSelect.addEventListener("change", () => {
+        persistStageNotes();
+        activeNoteId = notesSelect.value;
+        renderActiveNote();
+        resetStageIdleTimer();
+      });
+      noteTitle.addEventListener("input", queueNoteSave);
+      noteCategory.addEventListener("change", queueNoteSave);
+      noteBody.addEventListener("input", queueNoteSave);
+      document.getElementById("delete-note").addEventListener("click", () => {
+        const note = activeNote();
+        if (!note || !window.confirm("Delete “" + noteDisplayTitle(note) + "” from this device?")) return;
+        stageNotes = stageNotes.filter((item) => item.id !== note.id);
+        if (stageNotes.length === 0) stageNotes.push(createNote(note.category));
+        activeNoteId = stageNotes[0].id;
+        renderActiveNote();
+        persistStageNotes();
+        announce("Note deleted. Your remaining notes stay on this device.");
+      });
+      document.getElementById("toggle-stage").addEventListener("click", () => setStageMode(true));
+      document.getElementById("exit-stage").addEventListener("click", () => setStageMode(false));
+      document.getElementById("stage-wake").addEventListener("click", () => {
+        document.body.classList.remove("stage-dimmed");
+        haptic(8);
+        resetStageIdleTimer();
+      });
+      document.addEventListener("pointerdown", () => {
+        if (document.body.classList.contains("notes-mode")
+          && !document.body.classList.contains("stage-dimmed")) resetStageIdleTimer();
+      }, { passive: true });
+      document.addEventListener("keydown", (event) => {
+        if (!event.repeat && document.body.classList.contains("notes-mode")
+          && !document.body.classList.contains("stage-dimmed")) resetStageIdleTimer();
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) clearTimeout(stageIdleTimer);
+        else if (!document.body.classList.contains("stage-dimmed")) resetStageIdleTimer();
+      });
+      window.addEventListener("pagehide", persistStageNotes);
 
       function shortcutNames() {
         const saved = readObject(storageKey, {});
@@ -1152,6 +1586,7 @@
             item.tabIndex = selected ? 0 : -1;
             document.getElementById(item.getAttribute("aria-controls")).hidden = !selected;
           });
+          setNotesMode(tab.dataset.system === "notes");
           refreshComposer();
           if (!wasSelected) haptic();
         });
@@ -1191,8 +1626,11 @@
       function refreshComposer() {
         const activeTab = systemTabs.find((tab) => tab.getAttribute("aria-selected") === "true");
         const system = activeTab ? activeTab.dataset.system : "reminders";
+        const isNotes = system === "notes";
         const reminderNeedsText = system !== "reminders" || selectedReminderAction !== "list";
-        intentComposer.hidden = !reminderNeedsText;
+        intentComposer.hidden = isNotes || !reminderNeedsText;
+        document.querySelector(".chain-bar").hidden = isAndroid || isNotes;
+        if (isNotes) return;
         if (system === "reminders") {
           intentLabel.textContent = selectedReminderAction === "complete"
             ? "REMINDER TO FIND" : "YOUR NEXT REMINDER";
@@ -1237,6 +1675,20 @@
       });
 
       function placeVoiceIntent(transcript) {
+        const activeTab = systemTabs.find((tab) => tab.getAttribute("aria-selected") === "true");
+        if (activeTab && activeTab.dataset.system === "notes") {
+          if (noteBody.readOnly) {
+            announce("Exit Stage view before dictating into this note.");
+            return;
+          }
+          const separator = noteBody.value && !noteBody.value.endsWith("\n") ? "\n" : "";
+          const insertion = separator + transcript;
+          const end = noteBody.value.length;
+          noteBody.setRangeText(insertion, end, end, "end");
+          noteBody.dispatchEvent(new Event("input", { bubbles: true }));
+          announce("Dictation added to this note.");
+          return;
+        }
         const words = transcript.toLowerCase();
         const cleaned = transcript.replace(/^\s*(please\s+)?(remind me to|add a reminder to|remember to|set a reminder to|find|open|show|back up|backup|copy|turn on|turn off|set|activate)\s+/i, "").trim();
         let category;
@@ -1450,14 +1902,39 @@
         openHandoff("home", "scene", scene, "Home: " + scene);
       });
 
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let brainFramePending = false;
+      let brainVisible = true;
+      let brainLastFrame = 0;
+      let brainHasRendered = false;
+
+      function scheduleBrainFrame() {
+        if (brainFramePending || document.hidden || !brainVisible
+          || (reducedMotion && brainHasRendered)) return;
+        brainFramePending = true;
+        window.setTimeout(() => {
+          window.requestAnimationFrame((time) => {
+            brainFramePending = false;
+            drawBrain(time);
+          });
+        }, 1000 / 15);
+      }
+
       function drawBrain() {
         const canvas = document.getElementById("brain");
+        const frameTime = performance.now();
+        if (document.hidden || !brainVisible || (frameTime - brainLastFrame < 1000 / 15)) return;
+        brainLastFrame = frameTime;
         const context = canvas.getContext("2d");
         const bounds = canvas.getBoundingClientRect();
-        const scale = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.round(bounds.width * scale);
-        canvas.height = Math.round(bounds.height * scale);
-        context.scale(scale, scale);
+        const scale = Math.min(window.devicePixelRatio || 1, 1.5);
+        const pixelWidth = Math.round(bounds.width * scale);
+        const pixelHeight = Math.round(bounds.height * scale);
+        if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+          canvas.width = pixelWidth;
+          canvas.height = pixelHeight;
+        }
+        context.setTransform(scale, 0, 0, scale, 0, 0);
         const width = bounds.width;
         const height = bounds.height;
         const cx = width * .5;
@@ -1569,13 +2046,23 @@
         context.arc(cx, cy, 2, 0, Math.PI * 2);
         context.fill();
         context.restore();
-        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) requestAnimationFrame(drawBrain);
+        brainHasRendered = true;
+        scheduleBrainFrame();
       }
 
+      if ("IntersectionObserver" in window) {
+        const brainObserver = new IntersectionObserver((entries) => {
+          brainVisible = entries.some((entry) => entry.isIntersecting);
+          if (brainVisible) scheduleBrainFrame();
+        });
+        brainObserver.observe(document.getElementById("brain"));
+      }
+      document.addEventListener("visibilitychange", scheduleBrainFrame);
+      window.addEventListener("resize", scheduleBrainFrame, { passive: true });
       renderActivity();
       populateSettings();
       confirmHandoffFromCallback();
-      requestAnimationFrame(drawBrain);
+      scheduleBrainFrame();
     })();
   </script>
 </body>
