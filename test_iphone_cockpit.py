@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
@@ -109,6 +110,14 @@ class IPhoneCockpitServerTests(unittest.TestCase):
 
                 self.assertEqual(error.exception.code, 404)
                 error.exception.close()
+
+    def test_netlify_publishes_root_and_rewrites_home_to_cockpit(self) -> None:
+        root = Path(__file__).parent
+        netlify_config = (root / "netlify.toml").read_text(encoding="utf-8")
+        redirects = (root / "_redirects").read_text(encoding="utf-8")
+
+        self.assertIn('publish = "."', netlify_config)
+        self.assertIn("/  /iphone_cockpit.html  200", redirects)
 
 
 if __name__ == "__main__":

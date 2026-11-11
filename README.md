@@ -32,6 +32,15 @@ and its four PWA assets, not other project files. Use it only on a trusted
 private network; do not port-forward it or expose it to the public internet. If
 Windows Firewall asks, allow access on private networks only.
 
+## Deploy on Netlify
+
+Connect this GitHub repository to Netlify and deploy the `main` branch. The
+included `netlify.toml` publishes the repository root without a build command,
+and `_redirects` serves the cockpit at the site root (`/`). After the deploy
+finishes, open the main Netlify site URL; no `/iphone_cockpit.html` suffix is
+needed. Use **Deploys → Trigger deploy → Clear cache and deploy site** if an
+older 404 is still being served.
+
 ## Install on iPhone
 
 Open the HTTPS app URL in Safari, tap **Share**, then **Add to Home Screen**.
