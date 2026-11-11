@@ -1,0 +1,1468 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="XENOMIND">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="description" content="A futuristic, permission-based personal command center for iPhone and Android.">
+  <title>XENOMIND // Personal system</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --void: #0b0f17;
+      --panel: rgba(15, 23, 33, .88);
+      --panel-raised: #121e2a;
+      --line: rgba(160, 195, 207, .13);
+      --text: #edf7f6;
+      --muted: #91a5ad;
+      --dim: #5b717a;
+      --mint: #78f3d0;
+      --cyan: #75d8ef;
+      --violet: #c69bff;
+      --amber: #ffcb88;
+      --pink: #ff93b4;
+      --radius: 22px;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--void);
+      color: var(--text);
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(ellipse at 51% 12%, rgba(32, 113, 117, .16), transparent 38rem),
+        radial-gradient(ellipse at 100% 51%, rgba(90, 62, 132, .11), transparent 32rem),
+        var(--void);
+    }
+
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+      outline: 2px solid var(--mint);
+      outline-offset: 3px;
+    }
+
+    .shell { width: min(100% - 34px, 1020px); margin: 0 auto; }
+    .topbar {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      padding-top: env(safe-area-inset-top);
+      border-bottom: 1px solid rgba(169, 209, 211, .08);
+      background: rgba(7, 10, 15, .81);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 66px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .brand-mark {
+      display: grid;
+      width: 35px;
+      height: 35px;
+      place-items: center;
+      border: 1px solid rgba(120, 243, 208, .32);
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(120, 243, 208, .13), rgba(117, 216, 239, .035));
+      color: var(--mint);
+    }
+    .brand-mark svg { width: 23px; height: 23px; }
+    .brand-name { font: 700 12px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .19em; }
+    .brand-sub { margin-top: 4px; color: var(--dim); font-size: 9px; letter-spacing: .16em; }
+    .top-actions { display: flex; align-items: center; gap: 9px; }
+    .link-state, .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.025);
+      color: var(--muted);
+    }
+    .link-state { gap: 7px; padding: 0 11px; font-size: 9px; letter-spacing: .13em; }
+    .link-state i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--mint);
+      box-shadow: 0 0 12px rgba(120, 243, 208, .7);
+    }
+    .icon-button { width: 37px; cursor: pointer; }
+    .icon-button svg { width: 17px; height: 17px; }
+
+    main { padding: 15px 0 42px; }
+    .hero {
+      position: relative;
+      display: grid;
+      min-height: 154px;
+      grid-template-columns: 1fr 180px;
+      align-items: center;
+      overflow: hidden;
+      padding: 18px 22px;
+      border: 1px solid rgba(142, 204, 207, .16);
+      border-radius: 22px;
+      background:
+        linear-gradient(116deg, rgba(15, 30, 39, .94), rgba(12, 19, 30, .7) 58%, rgba(23, 19, 39, .84)),
+        var(--panel);
+      box-shadow: 0 20px 70px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.035);
+    }
+    .hero::after {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      content: "";
+      background: linear-gradient(90deg, transparent 65%, rgba(120, 243, 208, .025));
+    }
+    .hero-copy { position: relative; z-index: 1; }
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--mint);
+      font: 600 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    .eyebrow-line { width: 20px; height: 1px; background: var(--mint); opacity: .7; }
+    h1 {
+      margin: 9px 0 6px;
+      font-size: clamp(25px, 5vw, 38px);
+      font-weight: 560;
+      letter-spacing: -.055em;
+      line-height: .99;
+    }
+    h1 span { color: var(--mint); }
+    .hero-copy > p { max-width: 370px; margin: 0; color: #a4b5bc; font-size: 11px; line-height: 1.5; }
+    .primary-button, .secondary-button, .action-button, .chip-button {
+      display: inline-flex;
+      min-height: 43px;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      border-radius: 13px;
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+    .primary-button {
+      padding: 0 16px;
+      border: 0;
+      background: linear-gradient(110deg, #90f4d8, #a4e7e9);
+      color: #071411;
+      font-size: 12px;
+      font-weight: 750;
+      box-shadow: 0 8px 26px rgba(120, 243, 208, .13);
+    }
+    .primary-button svg, .secondary-button svg, .action-button svg { width: 16px; height: 16px; }
+    .secondary-button {
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.025);
+      color: #c7d6d8;
+      font-size: 11px;
+    }
+    .primary-button:hover, .secondary-button:hover, .action-button:hover, .chip-button:hover {
+      transform: translateY(-1px);
+    }
+    .orb-wrap { position: relative; display: grid; min-height: 120px; place-items: center; }
+    .voice-node {
+      position: relative;
+      display: grid;
+      width: min(100%, 190px);
+      min-height: 135px;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .voice-node::before, .voice-node::after {
+      position: absolute;
+      width: 78%;
+      height: 78%;
+      border: 1px solid rgba(120,243,208,.16);
+      border-radius: 50%;
+      opacity: 0;
+      content: "";
+      pointer-events: none;
+    }
+    .voice-node[data-state="idle"]::before { animation: node-breathe 3.8s ease-in-out infinite; }
+    .voice-node[data-state="listening"]::before, .voice-node[data-state="listening"]::after {
+      border-color: rgba(91,240,225,.65);
+      animation: node-ripple 1.15s ease-out infinite;
+      opacity: 1;
+    }
+    .voice-node[data-state="listening"]::after { animation-delay: .55s; }
+    .voice-node[data-state="dispatching"] { animation: node-spin .8s linear infinite; }
+    .voice-node[data-state="confirmed"] { filter: drop-shadow(0 0 18px rgba(83,255,170,.82)); }
+    @keyframes node-breathe { 50% { transform: scale(1.09); opacity: .8; } }
+    @keyframes node-ripple { from { transform: scale(.65); opacity: .8; } to { transform: scale(1.2); opacity: 0; } }
+    @keyframes node-spin { to { transform: rotate(360deg); } }
+    #brain { width: 100%; height: 100%; }
+    .orb-caption {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      color: #65818a;
+      font: 7px ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .08em;
+      pointer-events: none;
+    }
+    .voice-hint { position: absolute; bottom: 13px; left: 50%; transform: translateX(-50%); color: #75949a; font-size: 8px; white-space: nowrap; pointer-events: none; }
+    .install-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 auto 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(120,243,208,.2);
+      border-radius: 13px;
+      background: rgba(16,35,34,.88);
+      color: #bfd8d5;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+    .install-banner.visible { display: flex; }
+    .install-banner button { flex: 0 0 auto; border: 0; background: transparent; color: var(--mint); font-size: 10px; cursor: pointer; }
+
+    .handoff-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 10px 0 14px;
+      padding: 0 2px;
+      color: #879aa1;
+      font-size: 9px;
+      line-height: 1.5;
+    }
+    .handoff-note svg { flex: 0 0 auto; width: 15px; height: 15px; margin-top: 1px; color: var(--cyan); }
+    .handoff-note strong { color: #e1f3f2; font-weight: 650; }
+
+    .module-grid { display: block; }
+    .module {
+      position: relative;
+      overflow: hidden;
+      padding: 19px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(150deg, rgba(18, 30, 42, .94), rgba(11, 17, 26, .94));
+      box-shadow: inset 0 1px rgba(255,255,255,.028);
+    }
+    .module::after {
+      position: absolute;
+      top: -70px;
+      right: -52px;
+      width: 175px;
+      height: 175px;
+      border-radius: 50%;
+      background: var(--glow, rgba(120,243,208,.08));
+      filter: blur(55px);
+      pointer-events: none;
+      content: "";
+    }
+    .module.reminders { --glow: rgba(120, 243, 208, .11); }
+    .module.library { --glow: rgba(198, 155, 255, .13); }
+    .module.home { --glow: rgba(255, 203, 136, .12); grid-column: 1 / -1; }
+    .module[hidden] { display: none; }
+    .module.unavailable { opacity: .48; }
+    .module.unavailable .action-button, .module.unavailable .scene-button { cursor: not-allowed; }
+    .module.unavailable .action-button { border-color: var(--line); background: rgba(255,255,255,.025); color: var(--muted); }
+    .module-head { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .module-title { display: flex; align-items: center; gap: 11px; }
+    .module-icon {
+      display: grid;
+      width: 39px;
+      height: 39px;
+      place-items: center;
+      border: 1px solid var(--icon-line, rgba(120,243,208,.22));
+      border-radius: 13px;
+      background: var(--icon-bg, rgba(120,243,208,.08));
+      color: var(--icon, var(--mint));
+    }
+    .module-icon svg { width: 19px; height: 19px; }
+    .library .module-icon { --icon-line: rgba(198,155,255,.23); --icon-bg: rgba(198,155,255,.08); --icon: var(--violet); }
+    .home .module-icon { --icon-line: rgba(255,203,136,.23); --icon-bg: rgba(255,203,136,.08); --icon: var(--amber); }
+    .module-title h3 { margin: 0; font-size: 14px; font-weight: 630; }
+    .module-title p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+    .module-index { color: #58707a; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .module-body { position: relative; z-index: 1; margin-top: 19px; }
+    .module-head { display: none; }
+    .module { padding: 16px; }
+    .module-body { margin-top: 0; }
+    .field-label { display: block; margin: 0 0 7px; color: #8098a1; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }
+    .text-field, .select-field {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 13px;
+      border: 1px solid rgba(157, 189, 199, .16);
+      border-radius: 12px;
+      background: rgba(4, 10, 16, .64);
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+    .text-field::placeholder { color: #5f727a; }
+    .text-field:focus, .select-field:focus { border-color: rgba(120,243,208,.5); }
+    .field-row { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px; }
+    .action-button {
+      min-height: 44px;
+      padding: 0 13px;
+      border: 1px solid rgba(120,243,208,.22);
+      background: rgba(120,243,208,.09);
+      color: #a3f4dc;
+      font-size: 10px;
+      font-weight: 680;
+      white-space: nowrap;
+    }
+    .library .action-button { border-color: rgba(198,155,255,.24); background: rgba(198,155,255,.09); color: #dec7ff; }
+    .home .action-button { border-color: rgba(255,203,136,.25); background: rgba(255,203,136,.09); color: #ffdda9; }
+    .helper { margin: 9px 1px 0; color: #72868e; font-size: 9px; line-height: 1.55; }
+    .task-options { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 12px; }
+    .system-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.025);
+    }
+    .system-tab {
+      min-height: 39px;
+      padding: 0 7px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: #879aa1;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .system-tab[aria-selected="true"] {
+      border-color: rgba(120,243,208,.2);
+      background: rgba(120,243,208,.09);
+      color: #c9ffed;
+      box-shadow: inset 0 0 18px rgba(120,243,208,.035);
+    }
+    .chip-button {
+      min-height: 30px;
+      padding: 0 10px;
+      border: 1px solid rgba(198,155,255,.14);
+      background: rgba(255,255,255,.025);
+      color: #a9a0b9;
+      font-size: 9px;
+    }
+    .chip-button[aria-pressed="true"] { border-color: rgba(198,155,255,.42); background: rgba(198,155,255,.1); color: #e0ccff; }
+    .scene-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .scene-button {
+      display: flex;
+      min-height: 62px;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 10px;
+      border: 1px solid rgba(255,203,136,.14);
+      border-radius: 12px;
+      background: rgba(255,255,255,.025);
+      color: #b6b0a5;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .18s ease, background .18s ease;
+    }
+    .scene-button:hover, .scene-button[aria-pressed="true"] { border-color: rgba(255,203,136,.43); background: rgba(255,203,136,.08); color: #ffe0af; }
+    .scene-button svg { width: 15px; height: 15px; color: var(--amber); }
+    .scene-button span { font-size: 9px; }
+
+    .activity-panel {
+      margin-top: 11px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(12, 19, 28, .77);
+    }
+    .activity-panel summary { cursor: pointer; list-style: none; }
+    .activity-panel summary::-webkit-details-marker { display: none; }
+    .activity-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .activity-head h3 { margin: 0; font-size: 10px; font-weight: 620; }
+    .activity-head span { color: var(--dim); font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+    .activity-list { display: grid; gap: 10px; margin: 13px 0 0; padding: 0; list-style: none; }
+    .activity-item { display: flex; align-items: center; gap: 9px; color: #a1b2b7; font-size: 10px; }
+    .activity-item .activity-dot { width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: var(--dim); }
+    .activity-item em { margin-left: auto; color: #61757d; font: normal 8px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+    .activity-empty { color: #6d8088; font-size: 10px; line-height: 1.5; }
+
+    .footer-note { margin: 12px 4px 0; color: #61747c; font-size: 9px; line-height: 1.6; text-align: center; }
+    #reminder-due-wrap[hidden], #reminder-text[hidden], #reminder-label[hidden] { display: none; }
+    .module .field-label { margin-top: 2px; }
+    .module .task-options { margin-top: 2px; }
+    .chain-bar { display: flex; align-items: center; gap: 7px; margin: 10px 0; overflow-x: auto; }
+    .chain-label { flex: 0 0 auto; color: var(--dim); font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+    .chain-button { flex: 0 0 auto; min-height: 30px; padding: 0 10px; border: 1px solid rgba(120,243,208,.17); border-radius: 999px; background: rgba(120,243,208,.045); color: #a9d8ca; font-size: 9px; cursor: pointer; }
+    .chain-button:hover { border-color: rgba(120,243,208,.5); background: rgba(120,243,208,.1); }
+    .activity-list { grid-template-columns: 1fr !important; }
+    .activity-item { flex-wrap: wrap; padding: 8px 0; border-top: 1px solid rgba(160,195,207,.08); }
+    .activity-badge, .activity-status { flex: 0 0 auto; padding: 3px 6px; border: 1px solid var(--line); border-radius: 999px; color: #9fb0b4; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .activity-status.confirmed { border-color: rgba(83,255,170,.24); color: #88f4b9; }
+    .replay-button { margin-left: auto; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.03); color: #bdd0d3; font-size: 8px; cursor: pointer; }
+    .install-dismiss { min-height: 32px; }
+
+    dialog {
+      width: min(440px, calc(100% - 30px));
+      max-height: min(88vh, 680px);
+      padding: 0;
+      overflow: auto;
+      border: 1px solid rgba(157, 189, 199, .2);
+      border-radius: 22px;
+      background: #0c131d;
+      color: var(--text);
+      box-shadow: 0 30px 100px rgba(0,0,0,.6);
+    }
+    dialog::backdrop { background: rgba(1,4,8,.74); backdrop-filter: blur(5px); }
+    .dialog-inner { padding: 20px; }
+    .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 17px; }
+    .dialog-head h2 { margin: 0; }
+    .dialog-head p { margin: 6px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .dialog-section { margin: 16px 0; }
+    .dialog-section h3 { margin: 0 0 8px; color: #cfe0e0; font-size: 11px; }
+    .dialog-section p, .dialog-section li { color: #91a5ad; font-size: 10px; line-height: 1.65; }
+    .dialog-section ol { padding-left: 18px; }
+    .shortcut-setting { display: grid; gap: 7px; margin: 12px 0; }
+    .shortcut-setting label { color: #91a5ad; font-size: 9px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .plain-button { min-height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.04); color: #bdd0d3; font-size: 10px; cursor: pointer; }
+    .dialog-actions .primary-button { min-height: 38px; }
+    .toast {
+      position: fixed;
+      z-index: 40;
+      right: 16px;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      left: 16px;
+      width: fit-content;
+      max-width: min(440px, calc(100% - 32px));
+      margin: auto;
+      padding: 11px 15px;
+      transform: translateY(12px);
+      border: 1px solid rgba(120,243,208,.25);
+      border-radius: 12px;
+      background: #13221f;
+      color: #cff9e9;
+      font-size: 10px;
+      line-height: 1.5;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    @media (min-width: 820px) {
+      main { padding-top: 30px; }
+      .hero { min-height: 180px; padding: 22px 30px; }
+      .module { padding: 23px; }
+      .activity-list { grid-template-columns: repeat(3, 1fr); }
+      .activity-empty { grid-column: 1 / -1; }
+    }
+    @media (max-width: 650px) {
+      .shell { width: min(100% - 24px, 500px); }
+      .topbar-inner { min-height: 54px; }
+      .brand-mark { width: 32px; height: 32px; }
+      .link-state { min-height: 33px; padding: 0 9px; font-size: 8px; }
+      main { padding-top: 10px; }
+      .hero { min-height: 134px; grid-template-columns: 1fr 114px; gap: 0; padding: 15px 13px 15px 16px; border-radius: 18px; }
+      .hero-copy > p { max-width: 235px; font-size: 10px; }
+      .eyebrow { font-size: 8px; letter-spacing: .12em; }
+      h1 { font-size: 26px; }
+      .orb-wrap { min-height: 102px; margin: 0 -7px; }
+      .voice-node { width: 118px; min-height: 102px; }
+      .orb-caption { right: 0; bottom: -3px; font-size: 5px; letter-spacing: .03em; }
+      .voice-hint { bottom: 5px; font-size: 7px; }
+      .module { padding: 13px; border-radius: 16px; }
+      .module-body { margin-top: 0; }
+      .task-options { gap: 5px; margin-bottom: 9px; }
+      .chip-button { min-height: 32px; padding-inline: 9px; font-size: 9px; }
+      .field-row { grid-template-columns: 1fr; }
+      .field-row .action-button { width: 100%; }
+      .scene-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .activity-panel { padding: 10px 12px; }
+    }
+    @media (max-width: 370px) {
+      .shell { width: calc(100% - 20px); }
+      .brand-name { font-size: 11px; }
+      .brand-sub { font-size: 8px; }
+      .link-state { font-size: 7px; }
+      .hero { padding-inline: 18px; }
+      .field-row { grid-template-columns: 1fr; }
+      .field-row .action-button { width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="install-banner shell" id="install-banner" aria-label="Install XENOMIND">
+    <span>Install on iOS: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</span>
+    <button class="install-dismiss" id="dismiss-install" type="button" aria-label="Dismiss install tip">Got it</button>
+  </aside>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="#top" aria-label="Xenomind home" style="color:inherit;text-decoration:none">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 3.4c-2.2-1.6-5.3-.2-5.3 2.5-2.8.1-4 3.3-2.1 5.2-1.6 2.3-.1 5.3 2.6 5.3.2 2.7 3.3 3.9 5.1 2.2 1.9 1.7 5 .5 5.2-2.2 2.7 0 4.1-3 2.5-5.3 1.9-1.9.7-5.1-2.1-5.2 0-2.7-3.1-4.1-5.3-2.5Z" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M12 4.2v15.5M7 7.3l4 2.4m6-2.4-4 2.4m-7 4.2 4-2.2m8 2.2-4-2.2M9.5 5.6 12 8l2.5-2.4M9 17.7l3-3.2 3 3.2" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
+          </svg>
+        </span>
+        <span><span class="brand-name">XENOMIND</span><span class="brand-sub">PERSONAL SYSTEMS</span></span>
+      </a>
+      <div class="top-actions">
+        <span class="link-state"><i></i> <span id="platform-state">DEVICE HANDOFF</span></span>
+        <button class="icon-button" id="open-settings" type="button" aria-label="Open setup and preferences">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <circle cx="12" cy="12" r="3.1"/><path d="m19.4 15 .1.1 1.1.9-1.6 2.8-1.3-.5a2 2 0 0 0-1.8.2l-.2.1a2 2 0 0 0-.9 1.5l-.1 1.4H9.3l-.2-1.4a2 2 0 0 0-.9-1.5l-.2-.1a2 2 0 0 0-1.8-.2l-1.3.5-1.6-2.8 1.1-.9A2 2 0 0 0 5 13.3v-.2a2 2 0 0 0-.7-1.7l-1.1-.9 1.6-2.8 1.3.5a2 2 0 0 0 1.8-.2l.2-.1A2 2 0 0 0 9 6.4l.2-1.4h3.4l.1 1.4a2 2 0 0 0 .9 1.5l.2.1a2 2 0 0 0 1.8.2l1.3-.5 1.6 2.8-1.1.9a2 2 0 0 0-.7 1.7v.2a2 2 0 0 0 .7 1.7Z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell" id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="eyebrow-line"></span> PERSONAL SYSTEM / READY</div>
+        <h1 id="hero-title">Your intent.<br><span>In motion.</span></h1>
+        <p>One calm control surface. Your phone stays in control.</p>
+      </div>
+      <div class="orb-wrap">
+        <button class="voice-node" id="voice-node" type="button" aria-label="Press and hold to speak an intent" aria-describedby="voice-hint" data-state="idle">
+          <canvas id="brain" aria-hidden="true"></canvas>
+          <span class="orb-caption" id="orb-caption">LOCAL / READY</span>
+        </button>
+        <span class="voice-hint" id="voice-hint">HOLD TO SPEAK</span>
+      </div>
+    </section>
+
+    <aside class="handoff-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.7 3.2 7.8 7.5 9.5 4.3-1.7 7.5-4.8 7.5-9.5V6L12 3Z"/><path d="m9 12 2 2 4-4"/></svg>
+      <span id="platform-note">Runs through iOS Shortcuts. Review the action on your iPhone before it runs.</span>
+    </aside>
+
+    <div class="system-tabs" role="tablist" aria-label="Choose a task system">
+      <button class="system-tab" id="tab-reminders" type="button" role="tab" aria-selected="true" aria-controls="reminders" tabindex="0" data-system="reminders">Reminders</button>
+      <button class="system-tab" id="tab-library" type="button" role="tab" aria-selected="false" aria-controls="library" tabindex="-1" data-system="library">Photos &amp; Files</button>
+      <button class="system-tab" id="tab-home" type="button" role="tab" aria-selected="false" aria-controls="home" tabindex="-1" data-system="home">Home</button>
+    </div>
+    <div class="chain-bar" role="group" aria-label="Quick intent chains">
+      <span class="chain-label">QUICK CHAINS</span>
+      <button class="chain-button" type="button" data-chain="deep-work">Deep Work</button>
+      <button class="chain-button" type="button" data-chain="end-of-day">End of Day Sync</button>
+    </div>
+
+    <div class="module-grid">
+      <section class="module reminders" id="reminders" role="tabpanel" aria-labelledby="tab-reminders">
+        <div class="module-head">
+          <div class="module-title">
+            <span class="module-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5h11v15H5V5h3Zm0-2v4m8-4v4M8 10h8m-8 4h6"/><path d="m8 17 1.4 1.4L12 16"/></svg>
+            </span>
+            <span><h3 id="reminders-title">Reminders</h3><p>Thought to next action</p></span>
+          </div>
+          <span class="module-index">SYS / 01</span>
+        </div>
+        <div class="module-body">
+          <div class="task-options" role="group" aria-label="Reminder action">
+            <button class="chip-button reminder-mode" type="button" data-reminder-action="create" aria-pressed="true">Create</button>
+            <button class="chip-button reminder-mode" type="button" data-reminder-action="list" aria-pressed="false">View list</button>
+            <button class="chip-button reminder-mode" type="button" data-reminder-action="complete" aria-pressed="false">Complete</button>
+          </div>
+          <label class="field-label" id="reminder-label" for="reminder-text">What should future-you remember?</label>
+          <div class="field-row">
+            <input class="text-field" id="reminder-text" maxlength="180" autocomplete="off" placeholder="e.g. Bring the blueprints">
+            <button class="action-button" id="send-reminder" type="button">
+              Create reminder
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+            </button>
+          </div>
+          <div id="reminder-due-wrap" style="margin-top:11px">
+            <label class="field-label" for="reminder-due">Optional due date and time</label>
+            <input class="text-field" id="reminder-due" type="datetime-local">
+          </div>
+          <p class="helper" id="reminder-helper">iPhone: your Shortcut creates an Apple Reminder. Android: the companion keeps a local task and optional notification.</p>
+        </div>
+      </section>
+
+      <section class="module library" id="library" role="tabpanel" aria-labelledby="tab-library" hidden>
+        <div class="module-head">
+          <div class="module-title">
+            <span class="module-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3.5 2.5-2.5 5 5"/></svg>
+            </span>
+            <span><h3 id="library-title">Photos &amp; Files</h3><p>Find a fragment. Arrange it.</p></span>
+          </div>
+          <span class="module-index">SYS / 02</span>
+        </div>
+        <div class="module-body">
+          <label class="field-label" for="library-text">Optional note for this selection</label>
+          <input class="text-field" id="library-text" maxlength="180" autocomplete="off" placeholder="e.g. Camera roll backup">
+          <div class="task-options" role="group" aria-label="Library task">
+            <button class="chip-button" type="button" data-library-task="photos" aria-pressed="true">Choose photos</button>
+            <button class="chip-button" type="button" data-library-task="files" aria-pressed="false">Choose files</button>
+            <button class="chip-button" type="button" data-library-task="organize" aria-pressed="false">Copy files</button>
+          </div>
+          <button class="action-button" id="send-library" type="button">
+            Continue to selection
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+          </button>
+          <p class="helper" id="library-helper">Choose items in your phone's picker. Copy keeps originals; sharing requires a separate confirmation.</p>
+        </div>
+      </section>
+
+      <section class="module home" id="home" role="tabpanel" aria-labelledby="tab-home" hidden>
+        <div class="module-head">
+          <div class="module-title">
+            <span class="module-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 10 8.5-7 8.5 7v10a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V10Z"/><path d="M9 21v-7h6v7m-2-12a1 1 0 1 0-2 0v2h2V9Z"/></svg>
+            </span>
+            <span><h3 id="home-title">Home</h3><p>Change the atmosphere</p></span>
+          </div>
+          <span class="module-index" id="home-platform-label">SYS / 03</span>
+        </div>
+        <div class="module-body">
+          <div class="field-wrap">
+            <label class="field-label" for="home-text">Scene or accessory</label>
+            <input class="text-field" id="home-text" maxlength="100" autocomplete="off" placeholder="Select a scene, or name one">
+          </div>
+          <div class="scene-grid" role="group" aria-label="HomeKit scene">
+            <button class="scene-button" type="button" data-scene="Arrive Home" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11 12 4l9 7M5.5 9.5V20h13V9.5M10 20v-6h4v6"/></svg><span>Arrive home</span>
+            </button>
+            <button class="scene-button" type="button" data-scene="Deep Focus" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2m10 8h-2M4 12H2m10 10v-2"/></svg><span>Deep focus</span>
+            </button>
+            <button class="scene-button" type="button" data-scene="Evening" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 15.5A8 8 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/><path d="m16 4 .7 1.6L18.5 6l-1.8.5L16 8l-.6-1.5L14 6l1.4-.4L16 4Z"/></svg><span>Evening</span>
+            </button>
+            <button class="scene-button" type="button" data-scene="All Off" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v8"/></svg><span>All off</span>
+            </button>
+          </div>
+          <p class="helper" id="home-helper">HomeKit is available through your iPhone Shortcut and your iOS Home permissions.</p>
+          <button class="action-button" id="send-home" type="button">
+            Activate selected scene
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <details class="activity-panel">
+      <summary><div class="activity-head"><h3 id="activity-title">Recent handoffs</h3><span>LOCAL ONLY</span></div></summary>
+      <ul class="activity-list" id="activity-list">
+        <li class="activity-empty">Nothing sent yet. Handoffs are attempts, not proof a task completed.</li>
+      </ul>
+    </details>
+    <p class="footer-note">Your iPhone approves every action. XENOMIND cannot bypass iOS permissions.</p>
+  </main>
+
+  <dialog id="setup-dialog" aria-labelledby="setup-title">
+    <form class="dialog-inner" id="settings-form" method="dialog">
+      <div class="dialog-head">
+        <div><h2 id="setup-title">Connect this device</h2><p>Actions run on the phone through a native, permissioned handoff—not through the web page.</p></div>
+        <button class="icon-button" id="close-settings" type="button" aria-label="Close setup">×</button>
+      </div>
+      <div class="dialog-section" id="ios-shortcuts-section">
+        <h3>Apple / iOS Shortcuts</h3>
+        <ol>
+          <li><strong>Xenomind - Reminder:</strong> receive a JSON text request; branch on create, list, or complete. Use Apple Reminders actions.</li>
+          <li><strong>Xenomind - Library:</strong> branch on photos, files, or organize; use iOS selection actions and require confirmation before changes or sharing.</li>
+          <li><strong>Xenomind - Home:</strong> match the requested scene and run it with your Home permissions. HomeKit is iOS-only in this version.</li>
+          <li><strong>Xenomind - Chain:</strong> process the payload's <code>steps</code> in order. Add your own Focus, Home, Reminders, and picker actions; iOS may still ask for permission or confirmation.</li>
+        </ol>
+        <p>Enable receiving Text input. Use <strong>Get Dictionary from Input</strong> to parse the JSON; shortcut names must match the fields below. A returned handoff only confirms the Shortcut returned to this page.</p>
+      </div>
+      <div class="dialog-section" id="ios-shortcut-names">
+        <h3>Shortcut names</h3>
+        <div class="shortcut-setting"><label for="shortcut-reminder">Reminder Shortcut</label><input class="text-field" id="shortcut-reminder" maxlength="80"></div>
+        <div class="shortcut-setting"><label for="shortcut-library">Photos &amp; Files Shortcut</label><input class="text-field" id="shortcut-library" maxlength="80"></div>
+        <div class="shortcut-setting"><label for="shortcut-home">Home Shortcut</label><input class="text-field" id="shortcut-home" maxlength="80"></div>
+        <div class="shortcut-setting"><label for="shortcut-chain">Quick Chains Shortcut</label><input class="text-field" id="shortcut-chain" maxlength="80"></div>
+        <p>Names are saved only in this browser. The page never reads your reminders, library, or Home data.</p>
+      </div>
+      <div class="dialog-section" id="android-setup-section">
+        <h3>Android / Native companion</h3>
+        <p>Import the project from the <code>android</code> folder into Android Studio, build, and install it. The source handles local reminders and the Android photo/file picker; HomeKit is deliberately unavailable. This source has not yet been built or verified on a device.</p>
+      </div>
+      <div class="dialog-actions">
+        <button class="plain-button" id="cancel-settings" type="button">Cancel</button>
+        <button class="primary-button" id="save-settings" type="submit">Save settings</button>
+      </div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+      const defaults = {
+        reminder: "Xenomind - Reminder",
+        library: "Xenomind - Library",
+        home: "Xenomind - Home",
+        chain: "Xenomind - Chain"
+      };
+      const storageKey = "xenomind-shortcut-names-v1";
+      const activityKey = "xenomind-handoffs-v1";
+      const settingsDialog = document.getElementById("setup-dialog");
+      const toast = document.getElementById("toast");
+      const activityList = document.getElementById("activity-list");
+      const isAndroid = /\bAndroid\b/i.test(navigator.userAgent);
+      const isAppleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      let selectedLibraryTask = "photos";
+      let selectedReminderAction = "create";
+      let selectedScene = "";
+      let toastTimer;
+      let recognition;
+      let recognitionStarted = false;
+
+      document.getElementById("platform-state").textContent = isAndroid
+        ? "ANDROID COMPANION"
+        : isAppleMobile ? "APPLE SHORTCUTS" : "PHONE HANDOFF";
+      document.getElementById("reminder-helper").textContent = isAndroid
+        ? "Android saves these in the companion app and can schedule a local notification."
+        : "iPhone: your Shortcut creates an Apple Reminder. Android: the companion keeps a local task and optional notification.";
+      document.getElementById("library-helper").textContent = isAndroid
+        ? "Android opens its native picker. Copy files asks for a destination and keeps originals; sharing needs a separate confirmation."
+        : "Your iPhone Shortcut asks you to choose items. Configure Copy files to save a copy; review any share or change before confirming.";
+
+      if (isAndroid) {
+        const home = document.getElementById("home");
+        document.getElementById("tab-home").hidden = true;
+        home.classList.add("unavailable");
+        home.querySelectorAll("button, input").forEach((control) => {
+          control.disabled = true;
+          control.setAttribute("aria-disabled", "true");
+        });
+        document.getElementById("home-platform-label").textContent = "iOS ONLY";
+        document.getElementById("home-helper").textContent =
+          "Apple HomeKit works only through Apple Home on iPhone. This module is disabled on Android.";
+        document.getElementById("platform-note").textContent =
+          "Android handoffs open the Xenomind companion. Reminders stay local to that app; photo and file access begins in Android's picker. HomeKit is iPhone-only.";
+      } else if (isAppleMobile) {
+        document.getElementById("platform-note").textContent =
+          "Each action opens a named iOS Shortcut. Review or cancel it there; iOS permissions and confirmations still apply. This page does not directly access phone data.";
+      } else if (!isAppleMobile) {
+        document.getElementById("platform-note").textContent =
+          "Open this page on your iPhone or Android phone to hand actions to its on-device app. The desktop preview cannot execute phone actions.";
+      }
+
+      const safariOnIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        && /Safari/i.test(navigator.userAgent)
+        && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent);
+      const inStandalone = navigator.standalone === true
+        || window.matchMedia("(display-mode: standalone)").matches;
+      let installDismissed = false;
+      try {
+        installDismissed = localStorage.getItem("xenomind-install-dismissed") === "true";
+      } catch (_error) {
+        announce("Browser storage is unavailable; the install tip cannot be dismissed permanently.");
+      }
+      if (safariOnIOS && navigator.standalone === false && !inStandalone
+        && !installDismissed) {
+        document.getElementById("install-banner").classList.add("visible");
+      }
+
+      if ("serviceWorker" in navigator && window.isSecureContext) {
+        navigator.serviceWorker.register("/sw.js")
+          .catch((error) => {
+            console.error("XENOMIND offline shell registration failed:", error);
+            announce("Offline launch is unavailable here. Open XENOMIND through HTTPS and reload.");
+          });
+      }
+
+      function readObject(key, fallback) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) || "null");
+          return value && typeof value === "object" && !Array.isArray(value) ? value : fallback;
+        } catch (_error) {
+          return fallback;
+        }
+      }
+
+      function shortcutNames() {
+        const saved = readObject(storageKey, {});
+        return Object.fromEntries(
+          Object.keys(defaults).map((key) => {
+            const value = typeof saved[key] === "string" ? saved[key].trim() : "";
+            return [key, value.slice(0, 80) || defaults[key]];
+          })
+        );
+      }
+
+      function haptic(pattern = 10) {
+        if (typeof navigator.vibrate === "function") navigator.vibrate(pattern);
+      }
+
+      function setNeuralState(state) {
+        const node = document.getElementById("voice-node");
+        node.dataset.state = state;
+        const captions = {
+          idle: "LOCAL / READY",
+          listening: "LISTENING",
+          dispatching: "DISPATCHING",
+          confirmed: "RETURN CONFIRMED"
+        };
+        document.getElementById("orb-caption").textContent = captions[state];
+      }
+
+      function announce(message) {
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 4200);
+      }
+
+      function makeId() {
+        return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : Date.now().toString(36) + Math.random().toString(36).slice(2);
+      }
+
+      function callbackUrl(id) {
+        const callback = new URL(window.location.href);
+        callback.search = "";
+        callback.hash = "";
+        callback.searchParams.set("handoff", "success");
+        callback.searchParams.set("id", id);
+        return callback.toString();
+      }
+
+      const shortcutByCategory = {
+        "Reminders": { module: "reminder", key: "reminder" },
+        "Photos & Files": { module: "library", key: "library" },
+        "Home": { module: "home", key: "home" },
+        "Quick Chain": { module: "chain", key: "chain" }
+      };
+      const actionLabels = {
+        create: "Create reminder",
+        list: "View reminders",
+        complete: "Complete reminder",
+        photos: "Choose photos",
+        files: "Choose files",
+        organize: "Copy files",
+        scene: "Activate scene"
+      };
+
+      function dispatchToiOS(category, actionType, noteText, options = {}) {
+        if (!isAppleMobile) {
+          announce("Open XENOMIND in Safari on your iPhone to launch an iOS Shortcut.");
+          return;
+        }
+        const target = shortcutByCategory[category];
+        if (!target) {
+          announce("This Shortcut category is not configured.");
+          return;
+        }
+        const id = makeId();
+        const payload = options.replayPayload || {
+          category,
+          actionType: options.actionLabel || actionLabels[actionType] || actionType,
+          noteText,
+          module: target.module,
+          action: actionType,
+          text: noteText,
+          ...(options.dueAt ? { dueAt: options.dueAt } : {}),
+          ...(options.steps ? { steps: options.steps } : {})
+        };
+        const url = new URL("shortcuts://x-callback-url/run-shortcut");
+        url.searchParams.set("name", shortcutNames()[target.key]);
+        url.searchParams.set("input", "text");
+        url.searchParams.set("text", JSON.stringify(payload));
+        url.searchParams.set("x-success", callbackUrl(id));
+        if (!recordHandoff({
+          id, category, actionType, noteText, payload, shortcutKey: target.key,
+          label: options.label || noteText || actionType, status: "Dispatched"
+        })) return;
+        setNeuralState("dispatching");
+        haptic([12, 35, 12]);
+        announce("Handing off to Shortcuts. Review the action on your iPhone.");
+        window.location.href = url.toString();
+        setTimeout(() => {
+          if (document.getElementById("voice-node").dataset.state === "dispatching") {
+            setNeuralState("idle");
+          }
+        }, 5000);
+      }
+
+      function openHandoff(module, action, text, label, dueAt = "", options = {}) {
+        if (isAndroid) {
+          const category = module === "reminder" ? "Reminders"
+            : module === "library" ? "Photos & Files" : "Home";
+          const id = makeId();
+          if (!recordHandoff({
+            id, category, actionType: action, noteText: text,
+            payload: { module, action, text, dueAt: dueAt || null },
+            shortcutKey: "", label, status: "Dispatched"
+          })) return;
+          const url = new URL("xenomind://run");
+          url.searchParams.set("module", module);
+          url.searchParams.set("action", action);
+          if (text) url.searchParams.set("text", text);
+          if (dueAt) url.searchParams.set("dueAt", dueAt);
+          announce("Opening the Android companion. Confirm the action on your device.");
+          window.location.href = url.toString();
+          setTimeout(() => announce("If the companion did not open, install the Android app and try again."), 1500);
+          return;
+        }
+        const category = module === "reminder" ? "Reminders"
+          : module === "library" ? "Photos & Files" : "Home";
+        dispatchToiOS(category, action, text, { dueAt, label, ...options });
+      }
+
+      function readActivity() {
+        const saved = readObject(activityKey, {});
+        return Array.isArray(saved.items) ? saved.items.filter((item) =>
+          item && typeof item.id === "string" && typeof item.label === "string"
+          && typeof item.category === "string" && typeof item.status === "string"
+          && item.payload && typeof item.payload === "object"
+        ).slice(0, 5) : [];
+      }
+
+      function recordHandoff(item) {
+        const items = readActivity();
+        items.unshift({ ...item, time: new Date().toISOString() });
+        try {
+          localStorage.setItem(activityKey, JSON.stringify({ items: items.slice(0, 5) }));
+        } catch (_error) {
+          announce("Handoff started, but this browser could not save local history.");
+          return false;
+        }
+        renderActivity();
+        return true;
+      }
+
+      function confirmHandoffFromCallback() {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("id");
+        if (params.get("handoff") !== "success" || !id) return;
+        const items = readActivity();
+        const match = items.find((item) => item.id === id);
+        if (!match) return;
+        match.status = "Confirmed";
+        match.returnedAt = new Date().toISOString();
+        try {
+          localStorage.setItem(activityKey, JSON.stringify({ items }));
+        } catch (_error) {
+          announce("The Shortcut returned, but local history could not be updated.");
+          return;
+        }
+        renderActivity();
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.search = "";
+        window.history.replaceState(null, "", cleanUrl.pathname + cleanUrl.hash);
+        setNeuralState("confirmed");
+        announce("The Shortcut returned to XENOMIND. Check the timeline for its status.");
+        window.setTimeout(() => setNeuralState("idle"), 3000);
+      }
+
+      function renderActivity() {
+        const items = readActivity();
+        activityList.replaceChildren();
+        if (items.length === 0) {
+          const empty = document.createElement("li");
+          empty.className = "activity-empty";
+          empty.textContent = "Nothing sent yet. Handoffs are attempts, not proof a task completed.";
+          activityList.append(empty);
+          return;
+        }
+        for (const item of items) {
+          const row = document.createElement("li");
+          row.className = "activity-item";
+          const label = document.createElement("span");
+          label.textContent = item.label;
+          const badge = document.createElement("span");
+          badge.className = "activity-badge";
+          badge.textContent = item.category;
+          const status = document.createElement("span");
+          status.className = "activity-status" + (item.status === "Confirmed" ? " confirmed" : "");
+          status.textContent = item.status;
+          const time = document.createElement("time");
+          time.dateTime = item.time;
+          time.textContent = new Date(item.time).toLocaleString([], {
+            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+          });
+          const replay = document.createElement("button");
+          replay.type = "button";
+          replay.className = "replay-button";
+          replay.textContent = "Replay";
+          replay.setAttribute("aria-label", "Replay " + item.label);
+          replay.addEventListener("click", () => replayHandoff(item));
+          row.append(label, badge, status, time, replay);
+          activityList.append(row);
+        }
+      }
+
+      function replayHandoff(item) {
+        if (item.shortcutKey && isAppleMobile) {
+          const category = item.category;
+          dispatchToiOS(category, item.actionType, item.noteText, {
+            label: item.label,
+            replayPayload: item.payload
+          });
+          return;
+        }
+        if (isAndroid && item.payload.module) {
+          const url = new URL("xenomind://run");
+          Object.entries(item.payload).forEach(([key, value]) => {
+            if (value !== null && typeof value !== "object" && value !== "") {
+              url.searchParams.set(key, String(value));
+            }
+          });
+          haptic();
+          window.location.href = url.toString();
+          return;
+        }
+        announce("Replay is available on the phone that can run this handoff.");
+      }
+
+      function populateSettings() {
+        const names = shortcutNames();
+        document.getElementById("shortcut-reminder").value = names.reminder;
+        document.getElementById("shortcut-library").value = names.library;
+        document.getElementById("shortcut-home").value = names.home;
+        document.getElementById("shortcut-chain").value = names.chain;
+      }
+
+      function showSettings() {
+        populateSettings();
+        document.getElementById("ios-shortcuts-section").hidden = isAndroid;
+        document.getElementById("ios-shortcut-names").hidden = isAndroid;
+        document.getElementById("android-setup-section").hidden = !isAndroid;
+        document.getElementById("save-settings").hidden = isAndroid;
+        document.getElementById("setup-title").textContent = isAndroid
+          ? "Android companion" : "Connect this device";
+        settingsDialog.showModal();
+      }
+
+      document.getElementById("open-settings").addEventListener("click", showSettings);
+      document.getElementById("close-settings").addEventListener("click", () => settingsDialog.close());
+      document.getElementById("cancel-settings").addEventListener("click", () => settingsDialog.close());
+      document.getElementById("settings-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (isAndroid) return;
+        const names = {
+          reminder: document.getElementById("shortcut-reminder").value.trim(),
+          library: document.getElementById("shortcut-library").value.trim(),
+          home: document.getElementById("shortcut-home").value.trim(),
+          chain: document.getElementById("shortcut-chain").value.trim()
+        };
+        if (Object.values(names).some((name) => !name)) {
+          announce("Give each Shortcut a name before saving.");
+          return;
+        }
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(names));
+        } catch (_error) {
+          announce("Could not save settings. Check this browser's storage permissions.");
+          return;
+        }
+        settingsDialog.close();
+        announce("Shortcut names saved in this browser.");
+      });
+
+      const systemTabs = [...document.querySelectorAll(".system-tab")];
+      systemTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const wasSelected = tab.getAttribute("aria-selected") === "true";
+          systemTabs.forEach((item) => {
+            const selected = item === tab;
+            item.setAttribute("aria-selected", String(selected));
+            item.tabIndex = selected ? 0 : -1;
+            document.getElementById(item.getAttribute("aria-controls")).hidden = !selected;
+          });
+          if (!wasSelected) haptic();
+        });
+        tab.addEventListener("keydown", (event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          const direction = event.key === "ArrowRight" ? 1 : -1;
+          const availableTabs = systemTabs.filter((item) => !item.hidden);
+          const currentIndex = availableTabs.indexOf(tab);
+          const nextIndex = (currentIndex + direction + availableTabs.length) % availableTabs.length;
+          availableTabs[nextIndex].focus();
+          availableTabs[nextIndex].click();
+        });
+      });
+
+      const currentHour = new Date().getHours();
+      const timeOfDay = currentHour < 12 ? "morning"
+        : currentHour < 17 ? "afternoon" : "evening";
+      document.getElementById("reminder-text").placeholder = timeOfDay === "morning"
+        ? "e.g. Plan today's first step"
+        : timeOfDay === "evening" ? "e.g. Set tomorrow's first reminder" : "e.g. Bring the blueprints";
+      document.getElementById("library-text").placeholder = timeOfDay === "evening"
+        ? "e.g. Back up today's camera roll"
+        : timeOfDay === "morning" ? "e.g. Find a photo from last night" : "e.g. Camera roll backup";
+
+      document.querySelectorAll("[data-chain]").forEach((button) => {
+        button.addEventListener("click", () => {
+          if (!isAppleMobile) {
+            announce(isAndroid
+              ? "Quick intent chains require the configured iOS Shortcuts companion."
+              : "Open XENOMIND in Safari on your iPhone to run a Shortcut chain.");
+            return;
+          }
+          const chain = button.dataset.chain;
+          const isDeepWork = chain === "deep-work";
+          const label = isDeepWork ? "Deep Work" : "End of Day Sync";
+          const steps = isDeepWork
+            ? [
+                { category: "Home", actionType: "scene", noteText: "Deep Focus" },
+                { category: "Focus", actionType: "set_focus", noteText: "Do Not Disturb" },
+                {
+                  category: "Reminders",
+                  actionType: "create",
+                  noteText: "Deep Work timer",
+                  dueAt: new Date(Date.now() + 25 * 60 * 1000).toISOString()
+                }
+              ]
+            : [
+                { category: "Photos & Files", actionType: "organize", noteText: "Camera roll backup" },
+                { category: "Reminders", actionType: "create", noteText: "Tomorrow summary" }
+              ];
+          dispatchToiOS("Quick Chain", chain, label, { label, steps });
+        });
+      });
+
+      function placeVoiceIntent(transcript) {
+        const words = transcript.toLowerCase();
+        let category;
+        if (/\b(photo|photos|picture|pictures|camera|file|files|backup|back up|copy)\b/.test(words)) {
+          category = "library";
+          const task = /\b(copy|backup|back up)\b/.test(words) ? "organize"
+            : /\b(file|files)\b/.test(words) ? "files" : "photos";
+          document.querySelector(`[data-library-task="${task}"]`).click();
+          document.getElementById("library-text").value = transcript;
+        } else if (/\b(home|light|lights|scene|focus|evening)\b/.test(words)) {
+          if (isAndroid) {
+            announce("HomeKit is iPhone-only. The Android companion cannot control Apple Home.");
+            return;
+          }
+          category = "home";
+          document.getElementById("home-text").value = transcript;
+          selectedScene = "";
+          document.querySelectorAll("[data-scene]").forEach((button) =>
+            button.setAttribute("aria-pressed", "false")
+          );
+        } else {
+          category = "reminders";
+          document.getElementById("reminder-text").value = transcript;
+          document.getElementById("reminder-due").value = "";
+          document.querySelector('[data-reminder-action="create"]').click();
+        }
+        document.getElementById("tab-" + category).click();
+        announce("Voice intent added to " + (category === "library" ? "Photos & Files" : category) + ". Review it before sending.");
+      }
+
+      function beginVoiceCapture(event) {
+        if (event.type === "pointerdown" && event.button !== 0) return;
+        event.preventDefault();
+        if (recognitionStarted) return;
+        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!Recognition) {
+          announce("Voice input is not supported by this browser. Use the note field instead.");
+          return;
+        }
+        announce("Voice input uses the browser's speech service; avoid sensitive details.");
+        recognition = new Recognition();
+        recognition.lang = navigator.language || "en-US";
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        recognition.onresult = (resultEvent) => {
+          const transcript = resultEvent.results[0][0].transcript.trim();
+          if (transcript) placeVoiceIntent(transcript);
+        };
+        recognition.onerror = (errorEvent) => {
+          if (errorEvent.error !== "aborted" && errorEvent.error !== "no-speech") {
+            announce(errorEvent.error === "not-allowed"
+              ? "Microphone permission was denied. Allow it in Safari settings and try again."
+              : "Voice input stopped (" + errorEvent.error + "). You can type the intent instead.");
+          } else if (errorEvent.error === "no-speech") {
+            announce("No speech detected. Hold the neural node and try again.");
+          }
+        };
+        recognition.onend = () => {
+          recognitionStarted = false;
+          if (document.getElementById("voice-node").dataset.state === "listening") {
+            setNeuralState("idle");
+          }
+        };
+        try {
+          recognition.start();
+          recognitionStarted = true;
+          setNeuralState("listening");
+          haptic(8);
+        } catch (error) {
+          announce("Could not start voice input: " + error.message);
+        }
+      }
+
+      function endVoiceCapture() {
+        if (recognitionStarted && recognition) recognition.stop();
+      }
+
+      const voiceNode = document.getElementById("voice-node");
+      voiceNode.addEventListener("pointerdown", beginVoiceCapture);
+      voiceNode.addEventListener("pointerup", endVoiceCapture);
+      voiceNode.addEventListener("pointerleave", endVoiceCapture);
+      voiceNode.addEventListener("pointercancel", endVoiceCapture);
+      voiceNode.addEventListener("keydown", (event) => {
+        if (event.code === "Space" && !event.repeat) beginVoiceCapture(event);
+      });
+      voiceNode.addEventListener("keyup", (event) => {
+        if (event.code === "Space") endVoiceCapture();
+      });
+
+      document.getElementById("dismiss-install").addEventListener("click", () => {
+        document.getElementById("install-banner").classList.remove("visible");
+        try {
+          localStorage.setItem("xenomind-install-dismissed", "true");
+        } catch (_error) {
+          announce("Could not save this preference; the install tip may return next time.");
+        }
+      });
+
+      document.querySelectorAll("[data-reminder-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+          selectedReminderAction = button.dataset.reminderAction;
+          document.querySelectorAll("[data-reminder-action]").forEach((option) => {
+            option.setAttribute("aria-pressed", String(option === button));
+          });
+          const needsText = selectedReminderAction !== "list";
+          document.getElementById("reminder-text").hidden = !needsText;
+          document.getElementById("reminder-label").hidden = !needsText;
+          document.getElementById("reminder-due-wrap").hidden = selectedReminderAction !== "create";
+          document.getElementById("send-reminder").textContent =
+            selectedReminderAction === "list" ? "Open task list"
+              : selectedReminderAction === "complete" ? "Find task" : "Create reminder";
+        });
+      });
+
+      document.getElementById("send-reminder").addEventListener("click", () => {
+        const title = document.getElementById("reminder-text").value.trim();
+        if (selectedReminderAction !== "list" && !title) {
+          document.getElementById("reminder-text").focus();
+          announce(selectedReminderAction === "complete"
+            ? "Enter the reminder title to find." : "Add a reminder title first.");
+          return;
+        }
+        const dueValue = document.getElementById("reminder-due").value;
+        let dueAt = "";
+        if (selectedReminderAction === "create" && dueValue) {
+          const dueTime = new Date(dueValue);
+          if (Number.isNaN(dueTime.getTime()) || dueTime.getTime() <= Date.now()) {
+            document.getElementById("reminder-due").focus();
+            announce("Choose a future due date and time.");
+            return;
+          }
+          dueAt = dueTime.toISOString();
+        }
+        openHandoff("reminder", selectedReminderAction, title,
+          selectedReminderAction === "list" ? "Open reminder list"
+            : selectedReminderAction === "complete" ? "Find reminder: " + title
+              : "Create reminder: " + title,
+          dueAt);
+      });
+
+      document.querySelectorAll("[data-library-task]").forEach((button) => {
+        button.addEventListener("click", () => {
+          selectedLibraryTask = button.dataset.libraryTask;
+          document.querySelectorAll("[data-library-task]").forEach((option) => {
+            option.setAttribute("aria-pressed", String(option === button));
+          });
+        });
+      });
+      document.getElementById("send-library").addEventListener("click", () => {
+        const request = document.getElementById("library-text").value.trim();
+        openHandoff("library", selectedLibraryTask, request,
+          actionLabels[selectedLibraryTask] + (request ? ": " + request : ""),
+          "",
+          { actionLabel: actionLabels[selectedLibraryTask] });
+      });
+
+      document.querySelectorAll("[data-scene]").forEach((button) => {
+        button.addEventListener("click", () => {
+          selectedScene = button.dataset.scene;
+          document.getElementById("home-text").value = selectedScene;
+          document.querySelectorAll("[data-scene]").forEach((option) => {
+            option.setAttribute("aria-pressed", String(option === button));
+          });
+        });
+      });
+      document.getElementById("home-text").addEventListener("input", () => {
+        selectedScene = "";
+        document.querySelectorAll("[data-scene]").forEach((button) => button.setAttribute("aria-pressed", "false"));
+      });
+      document.getElementById("send-home").addEventListener("click", () => {
+        if (isAndroid) {
+          announce("HomeKit is not available on Android.");
+          return;
+        }
+        const scene = document.getElementById("home-text").value.trim();
+        if (!scene) {
+          announce("Choose a scene or enter its name.");
+          return;
+        }
+        openHandoff("home", "scene", scene, "Home: " + scene);
+      });
+
+      function drawBrain() {
+        const canvas = document.getElementById("brain");
+        const context = canvas.getContext("2d");
+        const bounds = canvas.getBoundingClientRect();
+        const scale = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(bounds.width * scale);
+        canvas.height = Math.round(bounds.height * scale);
+        context.scale(scale, scale);
+        const width = bounds.width;
+        const height = bounds.height;
+        const cx = width * .5;
+        const cy = height * .48;
+        const rx = Math.min(width * .36, height * .44);
+        const ry = height * .34;
+        const nodes = [];
+        for (let row = -5; row <= 5; row++) {
+          for (let col = -6; col <= 6; col++) {
+            const x = col / 6.5;
+            const y = row / 5.4;
+            if (x * x + y * y * 1.18 < .91) nodes.push({ x: cx + x * rx, y: cy + y * ry, nx: x, ny: y });
+          }
+        }
+        const time = performance.now() * .001;
+        context.save();
+        context.translate(0, Math.sin(time * .65) * 2);
+        context.beginPath();
+        context.ellipse(cx, cy, rx * 1.2, ry * 1.24, 0, 0, Math.PI * 2);
+        context.setLineDash([2, 6]);
+        context.strokeStyle = "rgba(120,243,208,.2)";
+        context.lineWidth = 1;
+        context.stroke();
+        context.setLineDash([]);
+
+        context.beginPath();
+        for (let i = 0; i <= 100; i++) {
+          const angle = Math.PI * 2 * i / 100;
+          const organic = 1 + .035 * Math.sin(angle * 9 + .4) + .018 * Math.cos(angle * 13);
+          const x = cx + Math.cos(angle) * rx * organic;
+          const y = cy + Math.sin(angle) * ry * organic;
+          if (i === 0) context.moveTo(x, y); else context.lineTo(x, y);
+        }
+        context.closePath();
+        const fill = context.createRadialGradient(cx, cy - ry * .2, 3, cx, cy, rx * 1.15);
+        fill.addColorStop(0, "rgba(32,91,99,.38)");
+        fill.addColorStop(1, "rgba(8,18,28,.76)");
+        context.fillStyle = fill;
+        context.fill();
+        context.strokeStyle = "rgba(105,225,222,.78)";
+        context.lineWidth = 1.2;
+        context.stroke();
+
+        for (const side of [-1, 1]) {
+          for (let fold = 0; fold < 5; fold++) {
+            context.beginPath();
+            for (let step = 0; step <= 28; step++) {
+              const y = -.83 + step * .061;
+              const x = side * (.14 + fold * .135 + Math.sin(step * .43 + fold * 1.3 + time * .24) * .028);
+              const px = cx + x * rx;
+              const py = cy + y * ry;
+              if (step === 0) context.moveTo(px, py); else context.lineTo(px, py);
+            }
+            context.strokeStyle = "rgba(74,187,190,.25)";
+            context.lineWidth = .8;
+            context.stroke();
+          }
+        }
+
+        for (let i = 0; i < nodes.length; i++) {
+          const node = nodes[i];
+          for (let j = i + 1; j < nodes.length; j++) {
+            const next = nodes[j];
+            const distance = Math.hypot(node.nx - next.nx, node.ny - next.ny);
+            if (distance < .37) {
+              const glow = (Math.sin(time * 2 + i * .31 + j * .09) + 1) * .5;
+              context.beginPath();
+              context.moveTo(node.x, node.y);
+              context.lineTo(next.x, next.y);
+              context.strokeStyle = `rgba(79,196,192,${.07 + glow * .13})`;
+              context.lineWidth = .7;
+              context.stroke();
+            }
+          }
+        }
+        nodes.forEach((node, index) => {
+          const pulse = (Math.sin(time * 2.4 + index * .81) + 1) * .5;
+          const radius = 1.2 + pulse * 1.8;
+          context.beginPath();
+          context.arc(node.x, node.y, radius + (pulse > .93 ? 4 : 0), 0, Math.PI * 2);
+          context.fillStyle = pulse > .93 ? "rgba(120,243,208,.14)" : "rgba(120,243,208,.04)";
+          context.fill();
+          context.beginPath();
+          context.arc(node.x, node.y, radius, 0, Math.PI * 2);
+          context.fillStyle = pulse > .79 ? "#b9ffe9" : pulse > .48 ? "#5dceb9" : "#357c83";
+          context.fill();
+        });
+        context.beginPath();
+        context.moveTo(cx + Math.sin(time * .4) * 2, cy - ry * .9);
+        context.bezierCurveTo(cx - 8, cy - ry * .35, cx + 9, cy + ry * .2, cx, cy + ry * .94);
+        context.strokeStyle = "rgba(183,255,233,.88)";
+        context.lineWidth = 1.1;
+        context.stroke();
+        const core = 5 + (Math.sin(time * 2) + 1) * 1.8;
+        context.beginPath();
+        context.arc(cx, cy, core * 2.6, 0, Math.PI * 2);
+        context.strokeStyle = "rgba(105,225,222,.34)";
+        context.lineWidth = 1;
+        context.stroke();
+        context.beginPath();
+        context.arc(cx, cy, core, 0, Math.PI * 2);
+        context.fillStyle = "#82f8dc";
+        context.shadowBlur = 20;
+        context.shadowColor = "#69ffe2";
+        context.fill();
+        context.shadowBlur = 0;
+        context.fillStyle = "#f3fffb";
+        context.beginPath();
+        context.arc(cx, cy, 2, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) requestAnimationFrame(drawBrain);
+      }
+
+      renderActivity();
+      populateSettings();
+      confirmHandoffFromCallback();
+      requestAnimationFrame(drawBrain);
+    })();
+  </script>
+</body>
+</html>
