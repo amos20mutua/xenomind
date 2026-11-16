@@ -12,9 +12,9 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Optional
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -71,6 +71,73 @@ def extract_gemini_text(result: dict) -> str:
             if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str):
                 lines.append(item["text"])
     return "\n".join(lines).strip()
+
+
+def extract_description_lyrics(description: str) -> str:
+    lines = str(description or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    heading_index = next((index for index, line in enumerate(lines) if re.fullmatch(
+        r"\s*(?:official\s+)?(?:song\s+)?lyrics(?:\s*\([^)]*\))?\s*[:\-–—]?\s*", line, re.I
+    )), -1)
+    if heading_index < 0:
+        return ""
+    stop_heading = re.compile(
+        r"^(?:about|subscribe|stream|listen|follow|credits?|written by|produced by|music video|official video|connect|socials?|more from|find (?:us|me|the artist)|label|management|booking|support|join|watch|buy|available on)\b",
+        re.I,
+    )
+    lyrics: list[str] = []
+    blank_lines = 0
+    for raw_line in lines[heading_index + 1:]:
+        line = raw_line.strip()
+        if not line:
+            blank_lines += 1
+            if blank_lines > 2 and len(lyrics) >= 3:
+                break
+            if lyrics and lyrics[-1]:
+                lyrics.append("")
+            continue
+        blank_lines = 0
+        if re.match(r"^(?:https?://|www\.)", line, re.I) or stop_heading.match(line):
+            break
+        if re.fullmatch(r"\[?(?:verse|chorus|bridge|intro|outro|pre.?chorus)\s*\d*\]?|\(?(?:verse|chorus|bridge|intro|outro)\)?\s*\d*", line, re.I):
+            continue
+        lyric_line = re.sub(r"^(?:\d{1,2}:)?\d{1,2}:\d{2}\s+", "", line)
+        if lyric_line:
+            lyrics.append(lyric_line)
+        if len("\n".join(lyrics)) >= MAX_LYRIC_CHARACTERS:
+            break
+    result = "\n".join(lyrics).strip()[:MAX_LYRIC_CHARACTERS]
+    word_count = len(result.split())
+    nonempty_lines = sum(bool(line.strip()) for line in result.splitlines())
+    return result if nonempty_lines >= 3 and word_count >= 10 else ""
+
+
+def get_public_youtube_metadata(video_id: str, fallback_api_key: str) -> Optional[dict]:
+    api_key = os.environ.get("YOUTUBE_API_KEY", fallback_api_key).strip()
+    if not api_key:
+        return None
+    query = urlencode({"part": "snippet,status", "id": video_id, "key": api_key})
+    upstream_request = Request("https://www.googleapis.com/youtube/v3/videos?" + query)
+    try:
+        with urlopen(upstream_request, timeout=4.5) as upstream:
+            data = json.loads(upstream.read().decode("utf-8"))
+        if not isinstance(data, dict) or not isinstance(data.get("items"), list) or not data["items"]:
+            return None
+        video = data["items"][0]
+        if not isinstance(video, dict):
+            return None
+        status = video.get("status")
+        if not isinstance(status, dict) or status.get("privacyStatus") != "public":
+            return None
+        snippet = video.get("snippet", {})
+        if not isinstance(snippet, dict):
+            return None
+        return {
+            "title": str(snippet.get("title", ""))[:200],
+            "channelTitle": str(snippet.get("channelTitle", ""))[:200],
+            "lyrics": extract_description_lyrics(str(snippet.get("description", ""))),
+        }
+    except (HTTPError, TimeoutError, URLError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
 
 
 class CockpitHandler(BaseHTTPRequestHandler):
@@ -190,6 +257,21 @@ class CockpitHandler(BaseHTTPRequestHandler):
                 oldest_ip = min(LYRIC_REQUESTS, key=LYRIC_REQUESTS.get)
                 LYRIC_REQUESTS.pop(oldest_ip, None)
 
+        metadata = get_public_youtube_metadata(video_id, api_key)
+        if metadata and metadata.get("lyrics"):
+            self.send_json(200, {
+                "status": "completed",
+                "source": "youtube_description",
+                "videoTitle": metadata.get("title", ""),
+                "channelTitle": metadata.get("channelTitle", ""),
+                "lyrics": metadata["lyrics"],
+            })
+            return
+        lyrics_search_url = ""
+        if metadata and metadata.get("title"):
+            query = " ".join(part for part in [metadata.get("channelTitle", ""), metadata["title"], "lyrics"] if part)
+            lyrics_search_url = "https://www.google.com/search?" + urlencode({"q": query})
+
         language_hint = re.sub(r"[\x00-\x1f\x7f]", " ", str(body.get("languageHint", ""))).strip()[:100]
         prompt = "\n".join(part for part in [
             "Create a working lyric transcription draft for musicians rehearsing this song.",
@@ -228,7 +310,10 @@ class CockpitHandler(BaseHTTPRequestHandler):
                 message = "The lyric generator's server key is invalid or does not have API access."
             else:
                 message = "The lyric generator is temporarily unavailable. Try again later."
-            self.send_json(429 if error.code == 429 else 502, {"message": message})
+            self.send_json(429 if error.code == 429 else 502, {
+                "message": message,
+                "lyricsSearchUrl": lyrics_search_url,
+            })
             return
         except (TimeoutError, URLError):
             self.send_json(504, {"message": "Gemini did not confirm that the analysis was queued. Try again; no lyric draft was returned."})
@@ -265,9 +350,14 @@ class CockpitHandler(BaseHTTPRequestHandler):
         job_token = secrets.token_urlsafe(32)
         with LYRIC_JOBS_LOCK:
             LYRIC_JOBS[job_token] = {"id": interaction_id, "expires": time.time() + 20 * 60}
-        self.send_json(202, {"status": status, "jobToken": job_token, "pollAfterMs": 2500})
+        self.send_json(202, {
+            "status": status,
+            "jobToken": job_token,
+            "pollAfterMs": 2500,
+            "lyricsSearchUrl": lyrics_search_url,
+        })
 
-    def gemini_request(self, api_key: str, path: str, method: str, body: dict | None = None) -> dict:
+    def gemini_request(self, api_key: str, path: str, method: str, body: Optional[dict] = None) -> dict:
         request_data = json.dumps(body).encode("utf-8") if body is not None else None
         upstream_request = Request(
             "https://generativelanguage.googleapis.com/v1beta/interactions" + path,

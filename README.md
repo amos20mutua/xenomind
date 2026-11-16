@@ -110,27 +110,26 @@ device. Anyone with access to this browser profile may be able to read them.
 In Notes, the enlarged neural sphere floats gently above the editor; this is a
 lightweight transform animation and follows the device's reduced-motion setting.
 
-Lyrics notes can generate a lyric draft directly from a public YouTube song
-link, including videos without captions. Band members do not sign in. The app
-sends the link and optional language hint to a Netlify Function, which passes
-the video URL to Gemini's video understanding API; the API key stays on the
-server. One-time owner setup is required: create a Gemini API key in [Google AI
+Lyrics notes check a public YouTube video's description for a clearly labeled
+lyrics section first. This fast path uses the [YouTube Data API](https://developers.google.com/youtube/v3/docs/videos/list); enable YouTube Data API v3 for the Google API key, or set an optional `YOUTUBE_API_KEY` in Netlify Functions if the Gemini key is restricted. If the description has no lyrics and the title metadata is available, the app offers a Google search link for the matched video title and channel. It also sends the video URL and optional language hint to Gemini's video understanding API. Gemini analyzes that request in the background while the page polls for the result, avoiding Netlify's synchronous request timeout. Band members do not sign in.
+
+One-time owner setup is required: create a Gemini API key in [Google AI
 Studio](https://ai.google.dev/gemini-api/docs/api-key), then add it as
 `GEMINI_API_KEY` in the site's Netlify environment variables with the
-**Functions** scope and redeploy. This setup uses the owner's Google account;
-band members using the app do not sign in. Never put the key in the HTML, Git,
-or a browser setting. The local Python preview also reads `GEMINI_API_KEY` from
-its server environment.
+**Functions** scope and redeploy. The YouTube API key, if needed, also belongs
+in the **Functions** scope. Never put either key in the HTML, Git, or a browser
+setting. The local Python preview also reads these keys from its server
+environment.
 
-Gemini's direct YouTube URL feature currently supports public videos and is in
-preview; its free tier currently allows up to eight hours of YouTube video per
-day, and limits may change ([Gemini video understanding](https://ai.google.dev/gemini-api/docs/video-understanding)).
-Private and unlisted videos are not supported. Generated words can be wrong,
-especially when vocals are unclear, so review and correct the draft together.
-Use videos you own or have permission to transcribe. The app requests that
-Gemini not store the interaction and saves the resulting draft only in the
-current browser's Lyrics note. A local captions-file and paste import remains
-available as a fallback.
+Gemini's direct YouTube URL feature supports public videos; private and
+unlisted videos are not supported. Gemini stores background interactions so
+they can be polled; XENOMIND asks Google to delete each interaction once the
+result is received. If the page is closed before completion, Google's normal
+project retention policy applies. Gemini quotas can still delay or reject
+requests. Generated words can be wrong, especially when vocals are unclear, so
+review and correct the draft together. Use videos you own or have permission to
+transcribe. A local captions-file and paste import remains available as a
+fallback.
 
 After 10 seconds without interaction, XENOMIND dims its own display; tap
 **Tap to wake** to restore it. In dim mode, a brighter, enlarged alien neural

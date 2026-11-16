@@ -28,7 +28,12 @@ async function withApiKey(value, callback) {
 
 async function startJob(ip) {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => Response.json({ id: "v1_abcdefghijk123456789", status: "in_progress" });
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("youtube/v3/videos")) {
+      return Response.json({ items: [{ status: { privacyStatus: "public" }, snippet: { title: "Song", description: "No lyric section." } }] });
+    }
+    return Response.json({ id: "v1_abcdefghijk123456789", status: "in_progress" });
+  };
   try {
     const response = await transcribeLyrics(post({ videoUrl }, ip), { ip });
     return { response, body: await response.json() };
@@ -62,6 +67,9 @@ test("starts a signed background job using Google's current REST revision", asyn
     let requestBody;
     let requestHeaders;
     globalThis.fetch = async (url, init) => {
+      if (String(url).includes("youtube/v3/videos")) {
+        return Response.json({ items: [{ status: { privacyStatus: "public" }, snippet: { title: "Song", description: "No lyric section." } }] });
+      }
       assert.equal(url, "https://generativelanguage.googleapis.com/v1beta/interactions");
       assert.equal(init.method, "POST");
       requestBody = JSON.parse(init.body);
@@ -74,6 +82,7 @@ test("starts a signed background job using Google's current REST revision", asyn
       assert.equal(response.status, 202);
       assert.equal(body.status, "in_progress");
       assert.match(body.jobToken, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+      assert.equal(body.lyricsSearchUrl, "https://www.google.com/search?q=Song%20lyrics");
       assert.equal(requestHeaders["x-goog-api-key"], "test-gemini-key");
       assert.equal(requestHeaders["Api-Revision"], "2026-05-20");
       assert.equal(requestBody.model, "gemini-3.8-flash");
@@ -82,6 +91,36 @@ test("starts a signed background job using Google's current REST revision", asyn
       assert.equal(requestBody.input.find((item) => item.type === "video").uri, videoUrl);
       assert.match(requestBody.input.find((item) => item.type === "text").text, /Swahili/);
       assert.doesNotMatch(JSON.stringify(body), /test-gemini-key/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("imports a clearly labeled lyrics block from the public video description immediately", async () => {
+  await withApiKey("test-gemini-key", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      assert.match(String(url), /^https:\/\/www\.googleapis\.com\/youtube\/v3\/videos/);
+      return Response.json({ items: [{
+        id: "9hE5-98ZeCg",
+        status: { privacyStatus: "public" },
+        snippet: {
+          title: "Band song",
+          channelTitle: "Band",
+          description: "New single out now.\n\nLyrics:\nFirst clear line\nSecond clear line\nThird clear line\nFourth clear line\n\nSubscribe for more."
+        }
+      }] });
+    };
+    try {
+      const response = await transcribeLyrics(post({ videoUrl }, "198.51.100.17"), { ip: "198.51.100.17" });
+      const body = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(body.status, "completed");
+      assert.equal(body.source, "youtube_description");
+      assert.equal(body.videoTitle, "Band song");
+      assert.equal(body.channelTitle, "Band");
+      assert.equal(body.lyrics, "First clear line\nSecond clear line\nThird clear line\nFourth clear line");
     } finally {
       globalThis.fetch = originalFetch;
     }

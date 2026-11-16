@@ -69,6 +69,68 @@ function youtubeVideoId(value) {
   }
 }
 
+function extractDescriptionLyrics(description) {
+  const lines = String(description || "").replace(/\r\n?/g, "\n").split("\n");
+  const headingIndex = lines.findIndex((line) =>
+    /^\s*(?:official\s+)?(?:song\s+)?lyrics(?:\s*\([^)]*\))?\s*[:\-–—]?\s*$/i.test(line)
+  );
+  if (headingIndex < 0) return "";
+
+  const stopHeading = /^(?:about|subscribe|stream|listen|follow|credits?|written by|produced by|music video|official video|connect|socials?|more from|find (?:us|me|the artist)|label|management|booking|support|join|watch|buy|available on)\b/i;
+  const lyrics = [];
+  let blankLines = 0;
+  for (const rawLine of lines.slice(headingIndex + 1)) {
+    const line = rawLine.trim();
+    if (!line) {
+      blankLines += 1;
+      if (blankLines > 2 && lyrics.length >= 3) break;
+      if (lyrics.length && lyrics[lyrics.length - 1] !== "") lyrics.push("");
+      continue;
+    }
+    blankLines = 0;
+    if (/^(?:https?:\/\/|www\.)/i.test(line) || stopHeading.test(line)) break;
+    if (/^(?:\[?(?:verse|chorus|bridge|intro|outro|pre.?chorus)\s*\d*\]?|\(?(?:verse|chorus|bridge|intro|outro)\)?\s*\d*)$/i.test(line)) continue;
+    const lyricLine = line.replace(/^(?:\d{1,2}:)?\d{1,2}:\d{2}\s+/, "");
+    if (lyricLine) lyrics.push(lyricLine);
+    if (lyrics.join("\n").length >= MAX_LYRIC_CHARACTERS) break;
+  }
+  const result = lyrics.join("\n").trim().slice(0, MAX_LYRIC_CHARACTERS);
+  const wordCount = result.split(/\s+/).filter(Boolean).length;
+  return result.split("\n").filter((line) => line.trim()).length >= 3 && wordCount >= 10 ? result : "";
+}
+
+async function getPublicYoutubeMetadata(videoId, fallbackApiKey) {
+  const apiKey = String(process.env.YOUTUBE_API_KEY || fallbackApiKey || "").trim();
+  if (!apiKey) return null;
+  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+  url.searchParams.set("part", "snippet,status");
+  url.searchParams.set("id", videoId);
+  url.searchParams.set("key", apiKey);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      console.info("XENOMIND YouTube description lookup unavailable.", JSON.stringify({ httpStatus: response.status }));
+      return null;
+    }
+    const data = await response.json();
+    const video = data && Array.isArray(data.items) ? data.items[0] : null;
+    const snippet = video && video.snippet && typeof video.snippet === "object" ? video.snippet : {};
+    if (!video || !video.status || video.status.privacyStatus !== "public") return null;
+    return {
+      title: String(snippet.title || "").slice(0, 200),
+      channelTitle: String(snippet.channelTitle || "").slice(0, 200),
+      lyrics: extractDescriptionLyrics(snippet.description)
+    };
+  } catch (error) {
+    console.info("XENOMIND YouTube description lookup unavailable.", error && error.name || "unknown error");
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function claimRateLimit(ip) {
   const now = Date.now();
   for (const [key, timestamp] of recentRequests) {
@@ -281,6 +343,19 @@ async function handleStart(body, context, apiKey) {
       retryAfterMs
     }, 429, { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) });
   }
+  const metadata = await getPublicYoutubeMetadata(videoId, apiKey);
+  if (metadata && metadata.lyrics) {
+    return jsonResponse({
+      status: "completed",
+      source: "youtube_description",
+      videoTitle: metadata.title,
+      channelTitle: metadata.channelTitle,
+      lyrics: metadata.lyrics
+    });
+  }
+  const lyricsSearchUrl = metadata && metadata.title
+    ? "https://www.google.com/search?q=" + encodeURIComponent([metadata.channelTitle, metadata.title, "lyrics"].filter(Boolean).join(" "))
+    : "";
   const languageHint = String(body.languageHint || "")
     .replace(/[\u0000-\u001f\u007f]/g, " ")
     .trim()
@@ -319,7 +394,14 @@ async function handleStart(body, context, apiKey) {
     console.error("XENOMIND lyric generation request failed.", error && error.name || "unknown error");
     return jsonResponse({ message: "The lyric generator is temporarily unavailable. Try again later." }, 502);
   }
-  if (!created.response.ok) return upstreamFailure(created.response, created.result);
+  if (!created.response.ok) {
+    const failure = upstreamFailure(created.response, created.result);
+    if (!lyricsSearchUrl) return failure;
+    const failureBody = await readGeminiResponse(failure);
+    const retryHeader = failure.headers.get("Retry-After");
+    return jsonResponse({ ...failureBody, lyricsSearchUrl }, failure.status,
+      retryHeader ? { "Retry-After": retryHeader } : {});
+  }
 
   const interactionId = typeof created.result.id === "string" ? created.result.id : "";
   if (!/^(?:v1|int)_[A-Za-z0-9_-]{6,200}$/.test(interactionId)) {
@@ -342,7 +424,7 @@ async function handleStart(body, context, apiKey) {
       message: error ? "The lyric draft could not be started: " + error : "The lyric draft could not be started. Try again later."
     }, 502);
   }
-  return jsonResponse({ status: created.result.status, jobToken, pollAfterMs: 2500 }, 202);
+  return jsonResponse({ status: created.result.status, jobToken, pollAfterMs: 2500, lyricsSearchUrl }, 202);
 }
 
 async function handlePoll(body, apiKey) {

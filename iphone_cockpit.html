@@ -1115,7 +1115,7 @@
         <textarea class="notes-body" id="note-body" maxlength="50000" rows="10" wrap="soft" spellcheck="true" autocapitalize="sentences" aria-describedby="notes-save-state"></textarea>
         <div class="lyrics-import" id="lyrics-import" hidden>
           <strong>Generate a lyric draft from YouTube</strong>
-          <p>Paste a public YouTube song link. Private and unlisted videos are not available to Gemini, even when you can open them with a link. XENOMIND will listen to the audio and draft the sung words, even when the video has no captions. Band members do not need to sign in. Generated lyrics can be inaccurate; review them together. Use videos you own or have permission to transcribe. Gemini temporarily stores background analyses; XENOMIND asks Google to delete each interaction when its result is received. If you leave before it finishes, Google keeps that interaction under the project’s normal retention policy.</p>
+          <p>Paste a public YouTube song link. XENOMIND first checks the video description for a lyrics section, then asks Gemini to draft the sung words if none is posted. Band members do not need to sign in. Generated lyrics can be inaccurate; review them together. Use videos you own or have permission to transcribe. Gemini temporarily stores background analyses; XENOMIND asks Google to delete each interaction when its result is received. If you leave before it finishes, Google keeps that interaction under the project’s normal retention policy.</p>
           <label class="field-label" for="youtube-lyrics-url">YOUTUBE SONG LINK</label>
           <input class="text-field" id="youtube-lyrics-url" type="url" maxlength="500" autocomplete="url" inputmode="url" placeholder="Paste the YouTube song link">
           <label class="field-label lyrics-language" for="lyrics-language-hint">LANGUAGE OR PRONUNCIATION HINT (OPTIONAL)</label>
@@ -1123,6 +1123,7 @@
           <div class="lyrics-import-actions">
             <button class="notes-stage-button" id="generate-youtube-lyrics" type="button">Generate lyric draft</button>
             <a class="notes-stage-button" id="open-youtube-video" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" hidden>Open video</a>
+            <a class="notes-stage-button" id="search-google-lyrics" target="_blank" rel="noopener noreferrer" hidden>Search Google for this song’s lyrics</a>
           </div>
           <p class="lyrics-import-status" id="lyrics-import-status" role="status" aria-live="polite"></p>
           <details class="lyrics-fallback">
@@ -1483,8 +1484,26 @@
       function updateYoutubeOpenLink() {
         const videoId = youtubeVideoId(document.getElementById("youtube-lyrics-url").value);
         const link = document.getElementById("open-youtube-video");
+        const searchLink = document.getElementById("search-google-lyrics");
         link.hidden = !videoId;
         if (videoId) link.href = "https://www.youtube.com/watch?v=" + encodeURIComponent(videoId);
+        searchLink.hidden = true;
+        searchLink.removeAttribute("href");
+      }
+
+      function setGoogleLyricsSearchLink(value) {
+        const searchLink = document.getElementById("search-google-lyrics");
+        try {
+          const searchUrl = new URL(value);
+          if (searchUrl.origin !== "https://www.google.com" || searchUrl.pathname !== "/search") {
+            throw new Error("Invalid search URL");
+          }
+          searchLink.href = searchUrl.href;
+          searchLink.hidden = false;
+        } catch (_error) {
+          searchLink.hidden = true;
+          searchLink.removeAttribute("href");
+        }
       }
 
       function importLyricsText(text, sourceLabel, replaceConfirmed = false) {
@@ -1514,6 +1533,9 @@
 
       async function generateYoutubeLyrics() {
         const button = document.getElementById("generate-youtube-lyrics");
+        const searchLink = document.getElementById("search-google-lyrics");
+        searchLink.hidden = true;
+        searchLink.removeAttribute("href");
         const videoId = youtubeVideoId(document.getElementById("youtube-lyrics-url").value);
         if (!videoId) {
           setLyricsImportStatus("Paste a valid public YouTube video link.", "error");
@@ -1531,7 +1553,7 @@
 
         button.disabled = true;
         beginStageWork();
-        setLyricsImportStatus("Starting background analysis of the public video. This can take a few minutes.");
+        setLyricsImportStatus("Checking the public video description for lyrics first.");
         let jobToken = "";
         const wait = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
         async function sendLyricsAction(payload) {
@@ -1582,11 +1604,12 @@
           });
           let result = started.result;
           jobToken = String(result.jobToken || "");
+          if (result.source !== "youtube_description") setGoogleLyricsSearchLink(result.lyricsSearchUrl);
           if (jobToken && result.status !== "completed") {
             const deadline = Date.now() + 12 * 60 * 1000;
             let pollDelay = Math.max(1500, Math.min(5000, Number(result.pollAfterMs) || 2500));
             let nextProgressUpdate = Date.now() + 30000;
-            setLyricsImportStatus("Gemini is analyzing the video in the background. Keep this screen open; the Lyrics note will update when the draft is ready.");
+            setLyricsImportStatus("No lyrics were posted in the description. Gemini is analyzing the video in the background; keep this screen open while it works.");
             while (result.status === "queued" || result.status === "in_progress") {
               if (Date.now() >= deadline) {
                 try { await sendLyricsAction({ action: "cancel", jobToken }); } catch (_error) { /* Best-effort cleanup after the wait limit. */ }
@@ -1632,9 +1655,15 @@
             catch (cleanupError) { console.warn("XENOMIND could not remove the completed Gemini interaction:", cleanupError); }
             jobToken = "";
           }
-          importLyricsText(lyrics, "AI-generated lyric draft", true);
+          const sourceLabel = result.source === "youtube_description"
+            ? "lyrics found in the YouTube description"
+            : "AI-generated lyric draft";
+          importLyricsText(lyrics, sourceLabel, true);
         } catch (error) {
           console.error("XENOMIND lyric generation failed:", error);
+          if (error && error.result && error.result.lyricsSearchUrl) {
+            setGoogleLyricsSearchLink(error.result.lyricsSearchUrl);
+          }
           const message = error instanceof TypeError
             ? "Could not reach the lyrics service. Check your connection and the Netlify function status."
             : error.message || "Lyrics could not be generated. Try again later.";
