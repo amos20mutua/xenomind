@@ -58,6 +58,7 @@ public final class MainActivity extends Activity {
     private LinearLayout content;
     private String pendingTitle;
     private long pendingDueAt;
+    private String handoffReturnUrl;
     private String libraryAction;
     private String libraryRequest;
     private final ArrayList<Uri> selectedUris = new ArrayList<>();
@@ -84,6 +85,7 @@ public final class MainActivity extends Activity {
     }
 
     private void routeIntent(Intent intent) {
+        handoffReturnUrl = null;
         Uri data = intent == null ? null : intent.getData();
         if (data == null || !"xenomind".equals(data.getScheme()) || !"run".equals(data.getHost())) {
             showHome();
@@ -93,6 +95,7 @@ public final class MainActivity extends Activity {
         String module = data.getQueryParameter("module");
         String action = data.getQueryParameter("action");
         String request = data.getQueryParameter("text");
+        handoffReturnUrl = validatedReturnUrl(data.getQueryParameter("callback"));
         if (request != null && request.length() > 500) {
             showError("That request is too long. Shorten it in the cockpit and try again.");
             return;
@@ -145,6 +148,10 @@ public final class MainActivity extends Activity {
     }
 
     private void showHome() {
+        showHome("success");
+    }
+
+    private void showHome(String returnOutcome) {
         beginPage("XENOMIND", "ANDROID COMPANION / READY");
         addText("Your phone. Your permissions.", 23, TEXT, true, 0, 0, 8, 0);
         addText(
@@ -168,6 +175,7 @@ public final class MainActivity extends Activity {
                 "Local reminder notifications can be delayed by Android battery and notification settings.",
             12, MUTED, false, 0, 18, 12, 0
         );
+        addReturnButton(returnOutcome);
     }
 
     private void showHomeKitUnavailable() {
@@ -178,7 +186,8 @@ public final class MainActivity extends Activity {
                 "This companion will not pretend that an Android handoff changed your home.",
             14, MUTED, false, 0, 0, 16, 0
         );
-        addButton("Return to Android tasks", this::showHome);
+        addButton("Return to Android tasks", () -> showHome("error"));
+        addReturnButton("error");
     }
 
     private void showReminderForm(String initialTitle, long dueAt) {
@@ -213,7 +222,7 @@ public final class MainActivity extends Activity {
             pendingDueAt = dueAt;
             saveReminderAfterPermission();
         });
-        addButton("Cancel", this::showHome);
+        addButton("Cancel", () -> showHome("cancel"));
     }
 
     private void saveReminderAfterPermission() {
@@ -322,6 +331,7 @@ public final class MainActivity extends Activity {
                 );
             }
             addButton("Back to companion", this::showHome);
+            addReturnButton();
         } catch (JSONException error) {
             showError("The local reminder list could not be read: " + error.getMessage());
         }
@@ -397,6 +407,12 @@ public final class MainActivity extends Activity {
     }
 
     private void openDocumentPicker() {
+        beginPage("CHOOSE ITEMS", "ANDROID SYSTEM PICKER");
+        addText(
+            "Choose only the photos or files you want XENOMIND to use. Your selection stays on this device.",
+            14, MUTED, false, 0, 0, 16, 0
+        );
+        addButton("Cancel selection", () -> showHome("cancel"));
         Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         picker.addCategory(Intent.CATEGORY_OPENABLE);
         picker.setType("photos".equals(libraryAction) ? "image/*" : "*/*");
@@ -412,7 +428,11 @@ public final class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null) return;
+        if (resultCode != RESULT_OK || data == null) {
+            if (requestCode == REQUEST_PHOTOS || requestCode == REQUEST_FILES) showHome("cancel");
+            else if (requestCode == REQUEST_DESTINATION) showSelectedItems("cancel");
+            return;
+        }
         if (requestCode == REQUEST_PHOTOS || requestCode == REQUEST_FILES) {
             selectedUris.clear();
             if (data.getClipData() != null) {
@@ -460,15 +480,27 @@ public final class MainActivity extends Activity {
     }
 
     private void showSelectedItems() {
+        showSelectedItems("organize".equals(libraryAction) ? "cancel" : "success");
+    }
+
+    private void showSelectedItems(String returnOutcome) {
         beginPage("SELECTION / REVIEW", "NOTHING HAS BEEN SHARED");
         addText(libraryRequest.isEmpty() ? "Your selection" : libraryRequest, 18, TEXT, true, 0, 0, 5, 0);
-        addText(selectedUris.size() + " item(s) selected. Review the system share sheet before sending.", 13, MUTED, false, 0, 0, 15, 0);
+        addText("organize".equals(libraryAction)
+                ? selectedUris.size() + " item(s) selected. Choose a destination to copy them; originals stay in place."
+                : selectedUris.size() + " item(s) selected. Review the system share sheet before sending.",
+            13, MUTED, false, 0, 0, 15, 0);
         for (Uri uri : selectedUris) {
             addText(displayName(uri), 12, MUTED, false, 0, 0, 8, 0);
         }
         addButton("Choose another selection", this::openDocumentPicker);
-        addButton("Open share sheet", this::shareSelection);
-        addButton("Cancel", this::showHome);
+        if ("organize".equals(libraryAction)) {
+            addButton("Choose a destination folder", this::openDestinationPicker);
+        } else {
+            addButton("Open share sheet", this::shareSelection);
+        }
+        addButton("Cancel", () -> showHome("cancel"));
+        addReturnButton(returnOutcome);
     }
 
     private void shareSelection() {
@@ -494,6 +526,12 @@ public final class MainActivity extends Activity {
     }
 
     private void openDestinationPicker() {
+        beginPage("CHOOSE DESTINATION", "COPY SELECTED FILES");
+        addText(
+            selectedUris.size() + " item(s) are ready to copy. Choose a destination folder; originals will be kept.",
+            14, MUTED, false, 0, 0, 16, 0
+        );
+        addButton("Back to selected items", this::showSelectedItems);
         Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
             Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
@@ -509,7 +547,7 @@ public final class MainActivity extends Activity {
         new AlertDialog.Builder(this)
             .setTitle("Copy selected files?")
             .setMessage(selectedUris.size() + " item(s) will be copied into the folder you chose. Originals are kept.")
-            .setNegativeButton("Cancel", (dialog, which) -> showHome())
+            .setNegativeButton("Cancel", (dialog, which) -> showHome("cancel"))
             .setPositiveButton("Copy files", (dialog, which) -> copySelectedFiles(tree))
             .show();
     }
@@ -669,11 +707,50 @@ public final class MainActivity extends Activity {
     }
 
     private void showError(String message) {
-        new AlertDialog.Builder(this)
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this)
             .setTitle("Xenomind could not continue")
             .setMessage(message)
-            .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
-            .show();
+            .setPositiveButton("OK", (alert, which) -> alert.dismiss());
+        if (handoffReturnUrl != null) {
+            dialog.setNeutralButton("Return to XENOMIND", (alert, which) -> returnToCockpit("error"));
+        }
+        dialog.show();
+    }
+
+    private void addReturnButton() {
+        addReturnButton("success");
+    }
+
+    private void addReturnButton(String outcome) {
+        if (handoffReturnUrl == null) return;
+        addButton("Return to XENOMIND", () -> returnToCockpit(outcome));
+    }
+
+    private void returnToCockpit(String outcome) {
+        if (handoffReturnUrl == null) return;
+        Uri original = Uri.parse(handoffReturnUrl);
+        Uri callback = original.buildUpon().clearQuery()
+            .appendQueryParameter("handoff", outcome)
+            .appendQueryParameter("id", original.getQueryParameter("id"))
+            .build();
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, callback));
+            finish();
+        } catch (ActivityNotFoundException error) {
+            showMessage("Could not reopen XENOMIND. Return to it from your app switcher.");
+        }
+    }
+
+    private String validatedReturnUrl(String value) {
+        if (value == null || value.length() > 2048) return null;
+        Uri uri = Uri.parse(value);
+        String scheme = uri.getScheme();
+        if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) return null;
+        String authority = uri.getAuthority();
+        if (uri.getHost() == null || authority == null || authority.contains("@")) return null;
+        if (!"success".equals(uri.getQueryParameter("handoff")) ||
+            uri.getQueryParameter("id") == null || uri.getQueryParameter("id").isEmpty()) return null;
+        return uri.toString();
     }
 
     private int dp(int value) {

@@ -48,6 +48,8 @@ The cockpit launches in standalone mode; iOS still controls Shortcuts, Home,
 microphone, and file permissions. Voice recognition is supplied by the
 browser/OS and may use online speech services, so do not speak sensitive
 information. If speech recognition is unavailable, enter the intent manually.
+On Android, use **Install app** when the browser offers it; otherwise choose the
+install option in the browser menu.
 The cockpit uses one shared intent field across systems; saying an intent
 selects the likely system and fills the field. Review it and tap the action
 button to hand it to iOS. This visible tap is intentional: a web page cannot
@@ -78,11 +80,12 @@ compatibility keys and optional `dueAt` or macro `steps`.
   app sends one macro request but cannot create or authorize the actions.
 
 Set the exact names in the cockpit's gear dialog. The iOS dispatcher uses
-`shortcuts://x-callback-url/run-shortcut` and returns to the current app URL
-with a one-time handoff ID. A **Confirmed** timeline state means the callback
-returned; it does not independently verify every device action. The last five
-requests and their payloads are stored only in this browser's local storage.
-Replay launches a new callback-tracked instance of the same request.
+`shortcuts://x-callback-url/run-shortcut` with success, error, and cancel return
+URLs. **Confirmed** means the Shortcut returned successfully; **Failed** and
+**Canceled** reflect its callback. None of these statuses independently verify
+every device action. The last five requests and their payloads are stored only
+in this browser's local storage. Replay launches a new callback-tracked
+instance of the same request.
 
 ## Live notes and stage mode
 
@@ -103,14 +106,26 @@ device. Anyone with access to this browser profile may be able to read them.
 In Notes, the enlarged neural sphere floats gently above the editor; this is a
 lightweight transform animation and follows the device's reduced-motion setting.
 
-After 60 seconds without interaction, XENOMIND dims its own display; tap
+Lyrics notes can import copied transcript text or a local `.vtt`, `.srt`, `.sbv`,
+or `.txt` captions file. No login or account connection is required; the app
+parses the text in the browser and saves it into the current Lyrics note. Paste
+a YouTube link to open the video, then copy its transcript from YouTube and
+paste it into the Lyrics importer, or choose a captions file. A YouTube link by
+itself cannot fill in lyrics: YouTube's official caption listing and download
+methods require OAuth, and downloading captions also requires permission to
+edit the video ([caption listing](https://developers.google.com/youtube/data/reference/rest/v3/captions/list),
+[caption download](https://developers.google.com/youtube/data/reference/rest/v3/captions/download)).
+Review imported text for lyric accuracy.
+
+After 10 seconds without interaction, XENOMIND dims its own display; tap
 **Tap to wake** to restore it. In dim mode, a brighter, enlarged alien neural
 sphere stays centered behind the wake control at up to 12 frames per second.
-Touch and keyboard wake actions are supported. A web app cannot change the iPhone's
-hardware brightness or override iOS Auto-Lock, so those remain controlled by
-iOS Settings. The standard sphere redraws at up to 15 frames per second,
-pauses off-screen and in the background, and respects the device's
-reduced-motion preference.
+Touch and keyboard wake actions are supported. While Notes is open, XENOMIND
+requests a screen wake lock for up to three minutes after opening Notes or the
+last touch or keypress, then releases it. This requires browser support and a
+visible page; if unavailable or denied, the phone's Auto-Lock setting applies.
+The standard sphere redraws at up to 15 frames per second, pauses off-screen
+and in the background, and respects the device's reduced-motion preference.
 
 ## Android companion
 
@@ -125,6 +140,9 @@ the cockpit.
 - Photos and files are selected with Android's system picker. Share opens the
   Android share sheet. Organize copies selected files to a folder you choose
   and keeps the originals.
+- When launched from the cockpit, use **Return to XENOMIND** on a result screen
+  to return to the browser and update its local handoff timeline. Picker/form
+  cancellations and reported errors can return with their own status.
 - HomeKit controls are disabled on Android. There is no direct Android
   HomeKit control path in this build.
 

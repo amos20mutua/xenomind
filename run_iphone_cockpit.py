@@ -47,8 +47,9 @@ class CockpitHandler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-            "img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
+            "default-src 'none'; script-src 'unsafe-inline'; "
+            "style-src 'unsafe-inline'; img-src 'self' data:; "
+            "connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
             "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         )
         self.end_headers()
