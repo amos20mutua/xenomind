@@ -6,6 +6,8 @@ import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.app.PendingIntent;
+import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
@@ -42,10 +44,18 @@ public final class ReminderAlarmReceiver extends BroadcastReceiver {
         Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
             ? new Notification.Builder(context, CHANNEL_ID)
             : new Notification.Builder(context);
+        Intent openReminders = new Intent(context, MainActivity.class)
+            .setAction(Intent.ACTION_VIEW)
+            .setData(Uri.parse("xenomind://run?module=reminder&action=list"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) pendingFlags |= PendingIntent.FLAG_IMMUTABLE;
+        PendingIntent contentIntent = PendingIntent.getActivity(context, taskId, openReminders, pendingFlags);
         Notification notification = builder
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Xenomind reminder")
             .setContentText(title)
+            .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .build();
         manager.notify(taskId, notification);

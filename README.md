@@ -60,8 +60,10 @@ reliably launch phone apps from background speech callbacks.
 
 Create the four Shortcuts below on the iPhone and allow each to receive **Text**
 input. Use **Get Dictionary from Input** to parse the JSON. Standard requests
-include `category`, `actionType`, and `noteText`, plus `module`/`action`/`text`
-compatibility keys and optional `dueAt` or macro `steps`.
+include machine-readable `category`, `actionType`, `actionLabel`, and `noteText`,
+plus `module`/`action`/`text` compatibility keys and optional `dueAt` or macro
+`steps`. Branch on `action` for single Reminder and Library actions; use
+`actionType` for each Quick Chain step.
 
 - **Xenomind - Reminder** — use **Get Dictionary from Input**, branch by
   `action`: create an Apple Reminder (using `text` and optional `dueAt`), show
@@ -148,7 +150,9 @@ the cockpit.
 
 - Reminders are stored locally in the companion app, not synced to Apple
   Reminders or Google Tasks. Optional notifications require OS permission and
-  use inexact Android alarms; battery settings can delay them.
+  use inexact Android alarms; battery settings can delay them. Tapping a
+  reminder notification opens the local reminder list. Pending alerts are
+  restored after device restart or app update.
 - Photos and files are selected with Android's system picker. Share opens the
   Android share sheet. Organize copies selected files to a folder you choose
   and keeps the originals.

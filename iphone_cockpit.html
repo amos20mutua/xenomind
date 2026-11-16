@@ -1056,7 +1056,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v8"/></svg><span>All off</span>
             </button>
           </div>
-          <p class="helper" id="home-helper">Shortcuts and Home keep their own permissions and confirmations.</p>
+          <p class="helper" id="home-helper">Choose a preset or enter the exact scene name. Your Xenomind - Home Shortcut maps it to a Home scene and handles permissions.</p>
           <button class="action-button" id="send-home" type="button">
             Activate selected scene
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
@@ -1899,16 +1899,24 @@
           return;
         }
         const id = makeId();
-        const payload = options.replayPayload || {
-          category,
-          actionType: options.actionLabel || actionLabels[actionType] || actionType,
-          noteText,
-          module: target.module,
-          action: actionType,
-          text: noteText,
-          ...(options.dueAt ? { dueAt: options.dueAt } : {}),
-          ...(options.steps ? { steps: options.steps } : {})
-        };
+        const payload = options.replayPayload
+          ? {
+              ...options.replayPayload,
+              actionType,
+              actionLabel: options.replayPayload.actionLabel
+                || actionLabels[options.replayPayload.action] || actionType
+            }
+          : {
+              category,
+              actionType,
+              actionLabel: options.actionLabel || actionLabels[actionType] || actionType,
+              noteText,
+              module: target.module,
+              action: actionType,
+              text: noteText,
+              ...(options.dueAt ? { dueAt: options.dueAt } : {}),
+              ...(options.steps ? { steps: options.steps } : {})
+            };
         const url = new URL("shortcuts://x-callback-url/run-shortcut");
         url.searchParams.set("name", shortcutNames()[target.key]);
         url.searchParams.set("input", "text");
@@ -2286,9 +2294,30 @@
         } else {
           category = "reminders";
           document.getElementById("tab-reminders").click();
-          intentInput.value = cleaned || transcript;
+          const refersToReminder = /\b(reminders?|tasks?|to-dos?)\b/.test(words);
+          const asksForList = refersToReminder && (
+            /\b(show|list|view|open)\b/.test(words)
+            || /^\s*(?:please\s+)?find\s+(?:(?:all|my)\s+)?(?:reminders?|tasks?)\s*[?.!]*\s*$/.test(words)
+          );
+          const asksToComplete = refersToReminder
+            && /^\s*(?:please\s+)?(?:find|complete|finish|mark|done with)\b/.test(words);
+          const action = asksForList ? "list" : asksToComplete ? "complete" : "create";
+          let reminderText = cleaned || transcript;
+          if (action === "complete") {
+            reminderText = transcript
+              .replace(/^\s*(?:please\s+)?mark\s+as\s+(?:complete|done)\s+(?:(?:the|this|my|a|an)\s+)?(?:(?:reminder|task)\s+)?/i, "")
+              .replace(/^\s*(?:please\s+)?(?:find|complete|finish|mark|done with)\s+(?:(?:the|this|my|a|an)\s+)?(?:(?:reminder|task)\s+)?/i, "")
+              .replace(/^to\s+/i, "")
+              .replace(/^(?:as\s+)?(?:complete|done)\s+/i, "")
+              .replace(/^(?:the|this|my|a|an)\s+(?:reminder|task)\s+/i, "")
+              .replace(/\s+(?:as\s+)?(?:complete|done)$/i, "")
+              .trim();
+          } else if (action === "list") {
+            reminderText = "";
+          }
+          intentInput.value = reminderText;
           document.getElementById("reminder-due").value = "";
-          document.querySelector('[data-reminder-action="create"]').click();
+          document.querySelector(`[data-reminder-action="${action}"]`).click();
         }
         document.getElementById("tab-" + category).click();
         announce("Voice intent added to " + (category === "library" ? "Photos & Files" : category) + ". Review it before sending.");
@@ -2385,6 +2414,9 @@
           document.getElementById("send-reminder").textContent =
             selectedReminderAction === "list" ? "Open task list"
               : selectedReminderAction === "complete" ? "Find task" : "Create reminder";
+          if (selectedReminderAction !== "create") {
+            document.getElementById("reminder-due").value = "";
+          }
           document.getElementById("reminder-due-wrap").open = false;
           refreshComposer();
         });
