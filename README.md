@@ -1,8 +1,9 @@
 # XENOMIND — Cross-platform Personal Systems
 
-A responsive phone cockpit hands tasks to iOS Shortcuts on Apple devices and to
-the native Android companion on Android. Apple HomeKit is intentionally
-iPhone-only; Android controls local reminders and user-selected files.
+A responsive phone cockpit hands reminders and library tasks to iOS Shortcuts or
+the native Android companion. Device modes use Apple's Screen Time controls on
+iPhone and a user-enabled Android Accessibility service to cover apps selected
+for Focus, Rehearsal, and Rest.
 
 The cockpit is also an installable PWA. Its manifest, offline shell, neural
 app icon, safe-area layout, Safari install tip, voice input, local handoff
@@ -22,8 +23,9 @@ timeline, and optional x-callback-url return are served with the app.
    preview supports handoffs, but iOS only enables Service Workers in a secure
    context. For offline PWA launches, host the files over HTTPS (or test at
    `localhost` on the same device).
-4. On iPhone, create the Shortcuts using [the setup guide](./IOS_SHORTCUTS.md).
-   On Android, build and install the companion app from Android Studio.
+4. On iPhone, create the three Shortcuts using [the setup guide](./IOS_SHORTCUTS.md)
+   and install the native modes companion from Xcode. On Android, build and
+   install the companion app from Android Studio.
 5. Tap an action and review it in the device handoff. Stop the local server
    with **Ctrl+C** when finished.
 
@@ -45,8 +47,8 @@ older 404 is still being served.
 ## Install on iPhone
 
 Open the HTTPS app URL in Safari, tap **Share**, then **Add to Home Screen**.
-The cockpit launches in standalone mode; iOS still controls Shortcuts, Home,
-microphone, and file permissions. Voice recognition is supplied by the
+The cockpit launches in standalone mode; iOS still controls Shortcuts,
+Screen Time, microphone, and file permissions. Voice recognition is supplied by the
 browser/OS and may use online speech services, so do not speak sensitive
 information. If speech recognition is unavailable, enter the intent manually.
 On Android, use **Install app** when the browser offers it; otherwise choose the
@@ -58,7 +60,7 @@ reliably launch phone apps from background speech callbacks.
 
 ## iPhone setup
 
-Create the four Shortcuts on the iPhone using [the setup guide](./IOS_SHORTCUTS.md)
+Create the three Shortcuts on the iPhone using [the setup guide](./IOS_SHORTCUTS.md)
 and allow each to receive **Text** input. Use **Get Dictionary from Input** to
 parse the JSON. Standard requests
 include machine-readable `category`, `actionType`, `actionLabel`, and `noteText`,
@@ -74,11 +76,9 @@ plus `module`/`action`/`text` compatibility keys and optional `dueAt` or macro
   Use the appropriate iOS picker; show a confirmation before sharing or
   changing anything. Configure `organize` as a copy unless you explicitly
   choose otherwise.
-- **Xenomind - Home** — match the requested scene in your Home setup, confirm
-  if appropriate, then use the Home action. HomeKit is only offered on iOS.
 - **Xenomind - Chain** — branch on `actionType` and process each object in
-  `steps` in order. The **Deep Work** chain requests a Home scene, Do Not
-  Disturb Focus, and a reminder due in 25 minutes. **End of Day Sync** requests
+  `steps` in order. The **Deep Work** chain requests Do Not Disturb Focus and a
+  reminder due in 25 minutes. **End of Day Sync** requests
   a photo/file copy and a “Tomorrow summary” reminder. Build those actions
   yourself in Shortcuts and preserve its user prompts and permissions; the web
   app sends one macro request but cannot create or authorize the actions.
@@ -142,6 +142,22 @@ visible page; if unavailable or denied, the phone's Auto-Lock setting applies.
 The standard sphere redraws at up to 15 frames per second, pauses off-screen
 and in the background, and respects the device's reduced-motion preference.
 
+## Native device modes
+
+The iPhone app project is in [ios/XenomindModes.xcodeproj](./ios/XenomindModes.xcodeproj).
+Open it on a Mac in Xcode, set the development team, build, and install it on
+the iPhone. It registers the `xenomind://run` link used by the cockpit and
+applies per-mode selections through Apple's Family Controls and Managed
+Settings frameworks. iOS asks the phone owner to authorize Screen Time access.
+Apple requires the account holder to request the Family Controls entitlement
+before distributing the app; see [Apple's entitlement instructions](https://developer.apple.com/documentation/FamilyControls/requesting-the-family-controls-entitlement).
+This Windows workspace cannot sign, build, or device-test an iOS app.
+
+On Android, modes use an Accessibility service that the phone owner must enable
+in Settings. The service observes app-window changes and covers only the apps
+selected for the active mode; it does not inspect screen text or collect app
+history. The service is declared with `canRetrieveWindowContent=false`.
+
 ## Android companion
 
 The Android source is in [android](./android). Open that folder in Android
@@ -151,18 +167,20 @@ the cockpit.
 
 - Reminders can be created in the companion or from the cockpit, and are stored
   locally in the companion app, not synced to Apple Reminders or Google Tasks.
-  Add a due date and time for an optional notification. Alerts require OS
-  permission and use inexact Android alarms; battery settings can delay them.
-  Tapping a reminder notification opens the local reminder list. Pending alerts are
-  restored after device restart or app update.
+  Add a due date and time for an optional notification. Alerts require Android
+  notification permission. Android 12 and later can use exact alarms after you
+  grant Alarms & reminders access; without it, alerts use inexact alarms and may
+  be delayed. Tapping a reminder notification opens the local reminder list.
+  Pending alerts are restored after device restart or app update.
 - Photos and files are selected with Android's system picker. Share opens the
   Android share sheet. Organize copies selected files to a folder you choose
   and keeps the originals.
 - When launched from the cockpit, use **Return to XENOMIND** on a result screen
   to return to the browser and update its local handoff timeline. Picker/form
   cancellations and reported errors can return with their own status.
-- HomeKit controls are disabled on Android. There is no direct Android
-  HomeKit control path in this build.
+- Modes store a separate app list for Focus, Rehearsal, and Rest. Start one from
+  the cockpit after enabling the Xenomind focus service in Android Accessibility
+  settings; an active mode covers selected apps until you end it.
 
 **Android implementation status: source scaffold only, not built or device
 tested.** This workspace has no Java, Gradle, Android SDK, emulator, or Android

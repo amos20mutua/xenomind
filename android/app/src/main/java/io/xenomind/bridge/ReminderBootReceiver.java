@@ -19,6 +19,10 @@ public final class ReminderBootReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent ignored) {
+        reschedule(context);
+    }
+
+    static void reschedule(Context context) {
         String encoded = context.getSharedPreferences(STORE, Context.MODE_PRIVATE)
             .getString(TASKS, "[]");
         try {
@@ -44,7 +48,15 @@ public final class ReminderBootReceiver extends BroadcastReceiver {
                     flags |= PendingIntent.FLAG_IMMUTABLE;
                 }
                 PendingIntent pending = PendingIntent.getBroadcast(context, id, alarmIntent, flags);
-                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarms.canScheduleExactAlarms()) {
+                    try {
+                        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+                    } catch (SecurityException permissionChanged) {
+                        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+                    }
+                } else {
+                    alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+                }
             }
         } catch (JSONException error) {
             Log.e(TAG, "Stored reminders are invalid; alarms were not rescheduled.", error);

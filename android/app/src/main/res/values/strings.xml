@@ -1,0 +1,3 @@
+<resources>
+    <string name="focus_blocker_description">Blocks only apps you select while a focus mode is active. Xenomind does not read screen text or collect app activity.</string>
+</resources>

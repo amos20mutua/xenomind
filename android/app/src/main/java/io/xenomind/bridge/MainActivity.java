@@ -10,6 +10,7 @@ import android.app.TimePickerDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Color;
@@ -18,11 +19,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -40,8 +43,12 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -62,8 +69,15 @@ public final class MainActivity extends Activity {
     private String pendingTitle;
     private long pendingDueAt;
     private String handoffReturnUrl;
+    private String handoffModule;
+    private String handoffAction;
     private String libraryAction;
     private String libraryRequest;
+    private boolean refreshAlarmsOnResume;
+    private boolean refreshRemindersOnResume;
+    private boolean pendingReminderSave;
+    private boolean activateAfterModeSave;
+    private String pendingModeKey = "";
     private final ArrayList<Uri> selectedUris = new ArrayList<>();
 
     @Override
@@ -72,6 +86,7 @@ public final class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.parseColor(BACKGROUND));
         getWindow().setNavigationBarColor(Color.parseColor(BACKGROUND));
         routeIntent(getIntent());
+        ReminderBootReceiver.reschedule(this);
     }
 
     @Override
@@ -79,6 +94,27 @@ public final class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         routeIntent(intent);
+        ReminderBootReceiver.reschedule(this);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (refreshAlarmsOnResume) {
+            refreshAlarmsOnResume = false;
+            ReminderBootReceiver.reschedule(this);
+            showReminderList("");
+        }
+        if (refreshRemindersOnResume) {
+            refreshRemindersOnResume = false;
+            ReminderBootReceiver.reschedule(this);
+            showReminderList("");
+        }
+        if (!pendingModeKey.isEmpty() && FocusModes.blockerEnabled(this)) {
+            String modeKey = pendingModeKey;
+            pendingModeKey = "";
+            activateMode(modeKey);
+        }
     }
 
     @Override
@@ -89,14 +125,19 @@ public final class MainActivity extends Activity {
 
     private void routeIntent(Intent intent) {
         handoffReturnUrl = null;
+        handoffModule = null;
+        handoffAction = null;
         Uri data = intent == null ? null : intent.getData();
         if (data == null || !"xenomind".equals(data.getScheme()) || !"run".equals(data.getHost())) {
+            pendingModeKey = "";
             showHome();
             return;
         }
 
         String module = data.getQueryParameter("module");
         String action = data.getQueryParameter("action");
+        handoffModule = module;
+        handoffAction = action;
         String request = data.getQueryParameter("text");
         handoffReturnUrl = validatedReturnUrl(data.getQueryParameter("callback"));
         if (request != null && request.length() > 500) {
@@ -109,10 +150,244 @@ public final class MainActivity extends Activity {
         } else if ("library".equals(module)) {
             routeLibrary(action, request);
         } else if ("home".equals(module)) {
-            showHomeKitUnavailable();
+            showModeHub();
+        } else if ("mode".equals(module)) {
+            routeMode(action, data.getQueryParameter("modeKey"));
         } else {
             showError("This action is not supported by the Android companion.");
         }
+    }
+
+    private void routeMode(String action, String modeKey) {
+        pendingModeKey = "";
+        activateAfterModeSave = false;
+        if ("settings".equals(action)) {
+            showModeSettings(FocusModes.isValid(modeKey) ? modeKey : "focus");
+        } else if ("activate".equals(action)) {
+            if (!FocusModes.isValid(modeKey)) {
+                showError("Choose Focus, Rehearsal, or Rest in the cockpit, then try again.");
+                return;
+            }
+            requestModeActivation(modeKey);
+        } else if ("stop".equals(action)) {
+            pendingModeKey = "";
+            if (!FocusModes.clearActive(this)) {
+                showError("Android could not end the active mode. Try again.");
+                return;
+            }
+            getSharedPreferences(FocusModes.STORE, MODE_PRIVATE).edit()
+                .remove(FocusModes.ACTIVE_CALLBACK).commit();
+            handoffModule = "mode";
+            handoffAction = "stop";
+            showHome("success");
+            returnToCockpit("success");
+        } else {
+            showError("That device mode action is not supported.");
+        }
+    }
+
+    private void activateMode(String modeKey) {
+        if (!FocusModes.isValid(modeKey) || FocusModes.blockedApps(this, modeKey).isEmpty()) {
+            showModeSettings(FocusModes.isValid(modeKey) ? modeKey : "focus");
+            showMessage("Choose at least one app before starting this mode.");
+            return;
+        }
+        if (!FocusModes.blockerEnabled(this)) {
+            showAccessibilitySetup(modeKey);
+            return;
+        }
+        if (!FocusModes.setActive(this, modeKey)) {
+            showError("Android could not save the active mode on this device.");
+            return;
+        }
+        getSharedPreferences(FocusModes.STORE, MODE_PRIVATE).edit()
+            .putString(FocusModes.ACTIVE_CALLBACK, handoffReturnUrl == null ? "" : handoffReturnUrl)
+            .commit();
+        handoffModule = "mode";
+        handoffAction = "activate";
+        showHome("success");
+        showMessage(FocusModes.label(modeKey) + " mode is active. Selected apps will be covered when opened.");
+        returnToCockpit("success");
+    }
+
+    private void requestModeActivation(String modeKey) {
+        if (FocusModes.blockedApps(this, modeKey).isEmpty()) {
+            activateAfterModeSave = true;
+            showModeSettings(modeKey);
+            showMessage("Choose at least one app before starting this mode.");
+        } else if (!FocusModes.blockerEnabled(this)) {
+            showAccessibilitySetup(modeKey);
+        } else {
+            activateMode(modeKey);
+        }
+    }
+
+    private void showModeHub() {
+        beginPage("DEVICE MODES", "APPS BLOCKED ON THIS PHONE");
+        addText("Choose a separate blocked-app list for each mode.", 14, MUTED, false, 0, 0, 14, 0);
+        for (String key : FocusModes.KEYS) {
+            Set<String> apps = FocusModes.blockedApps(this, key);
+            String state = key.equals(FocusModes.activeMode(this)) ? "Active now"
+                : apps.isEmpty() ? "No apps selected" : apps.size() + " app(s) selected";
+            addText(FocusModes.label(key) + " / " + state, 17, TEXT, true, 0, 12, 0, 0);
+            addButton("Choose apps for " + FocusModes.label(key), () -> showModeSettings(key));
+            if (!apps.isEmpty()) {
+                addButton("Start " + FocusModes.label(key) + " mode", () -> requestModeActivation(key));
+            }
+            if (key.equals(FocusModes.activeMode(this))) {
+                addButton("End " + FocusModes.label(key) + " mode", () -> {
+                    if (!FocusModes.clearActive(this)) {
+                        showError("Android could not end the active mode. Try again.");
+                        return;
+                    }
+                    getSharedPreferences(FocusModes.STORE, MODE_PRIVATE).edit()
+                        .remove(FocusModes.ACTIVE_CALLBACK).commit();
+                    handoffModule = "mode";
+                    handoffAction = "stop";
+                    showModeHub();
+                    returnToCockpit("success");
+                });
+            }
+        }
+        if (!FocusModes.blockerEnabled(this)) {
+            addText("App blocking is off. Android asks you to enable the Xenomind focus service in Accessibility before a mode can start.",
+                12, MUTED, false, 0, 16, 0, 0);
+        }
+        addButton("Back to companion", () -> showHome("cancel"));
+        addReturnButton("cancel");
+    }
+
+    private void showAccessibilitySetup(String modeKey) {
+        pendingModeKey = modeKey;
+        beginPage("ALLOW APP BLOCKING", "ANDROID ACCESSIBILITY SETTING");
+        addText("Android requires you to enable Xenomind’s focus service before it can block selected apps.",
+            19, TEXT, true, 0, 0, 12, 0);
+        addText("The service checks only which app is currently open. It does not read screen text, collect usage history, or send data anywhere. Enable “Xenomind focus mode” in Accessibility, then return here; " +
+            FocusModes.label(modeKey) + " will start automatically.", 14, MUTED, false, 0, 0, 18, 0);
+        addButton("Open Accessibility settings", () -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            } catch (ActivityNotFoundException error) {
+                showError("Open Android Settings, then Accessibility, and enable Xenomind focus mode.");
+            }
+        });
+        addButton("Choose blocked apps", () -> showModeSettings(modeKey));
+        addButton("Cancel", () -> {
+            pendingModeKey = "";
+            activateAfterModeSave = false;
+            showHome("cancel");
+        });
+        addReturnButton("cancel");
+    }
+
+    private void showModeSettings(String modeKey) {
+        String validKey = FocusModes.isValid(modeKey) ? modeKey : "focus";
+        beginPage(FocusModes.label(validKey).toUpperCase(Locale.ROOT) + " MODE", "CHOOSE APPS TO BLOCK");
+        addText("Select the apps this mode should pause. Android’s system and Xenomind settings remain available so you can end the mode.",
+            14, MUTED, false, 0, 0, 14, 0);
+
+        Set<String> savedPackages = FocusModes.blockedApps(this, validKey);
+        Set<String> selectedPackages = new HashSet<>();
+        LinearLayout choices = new LinearLayout(this);
+        choices.setOrientation(LinearLayout.VERTICAL);
+        choices.setPadding(dp(12), dp(8), dp(12), dp(8));
+        choices.setBackgroundColor(Color.rgb(17, 28, 39));
+        content.addView(choices, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        Intent launcherIntent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+        List<ResolveInfo> apps = getPackageManager().queryIntentActivities(launcherIntent, 0);
+        Collections.sort(apps, Comparator.comparing(
+            item -> String.valueOf(item.loadLabel(getPackageManager())).toLowerCase(Locale.ROOT)));
+        Intent homeIntent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        Set<String> homePackages = new HashSet<>();
+        for (ResolveInfo homeApp : getPackageManager().queryIntentActivities(homeIntent, 0)) {
+            if (homeApp.activityInfo != null) homePackages.add(homeApp.activityInfo.packageName);
+        }
+        int appCount = 0;
+        Set<String> seen = new HashSet<>();
+        for (ResolveInfo app : apps) {
+            String packageName = app.activityInfo == null ? "" : app.activityInfo.packageName;
+            if (packageName.isEmpty() || packageName.equals(getPackageName())
+                || packageName.equals("com.android.settings") || homePackages.contains(packageName)
+                || !seen.add(packageName)) continue;
+            appCount++;
+            if (savedPackages.contains(packageName)) selectedPackages.add(packageName);
+            CheckBox checkBox = new CheckBox(this);
+            checkBox.setText(app.loadLabel(getPackageManager()));
+            checkBox.setTextColor(Color.parseColor(TEXT));
+            checkBox.setButtonTintList(android.content.res.ColorStateList.valueOf(Color.parseColor(MINT)));
+            checkBox.setChecked(selectedPackages.contains(packageName));
+            checkBox.setTag(packageName);
+            checkBox.setPadding(dp(5), dp(5), dp(5), dp(5));
+            checkBox.setOnCheckedChangeListener((button, checked) -> {
+                String selectedPackage = (String) button.getTag();
+                if (checked) selectedPackages.add(selectedPackage);
+                else selectedPackages.remove(selectedPackage);
+            });
+            choices.addView(checkBox, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        if (appCount == 0) {
+            addText("Android did not return any launchable apps. Check that the app list is available on this phone.",
+                13, MUTED, false, 0, 12, 0, 0);
+        }
+        addButton("Save blocked apps", () -> {
+            if (!FocusModes.saveBlockedApps(this, validKey, selectedPackages)) {
+                showError("Android could not save this mode’s app list.");
+                return;
+            }
+            if (validKey.equals(FocusModes.activeMode(this))) {
+                if (selectedPackages.isEmpty()) {
+                    FocusModes.clearActive(this);
+                    getSharedPreferences(FocusModes.STORE, MODE_PRIVATE).edit()
+                        .remove(FocusModes.ACTIVE_CALLBACK).commit();
+                    handoffModule = "mode";
+                    handoffAction = "stop";
+                }
+                else if (FocusModes.blockerEnabled(this)) {
+                    FocusModes.clearActive(this);
+                    FocusModes.setActive(this, validKey);
+                }
+            }
+            if (activateAfterModeSave) {
+                activateAfterModeSave = false;
+                if (selectedPackages.isEmpty()) {
+                    showMessage("Choose at least one app before starting this mode.");
+                    showModeSettings(validKey);
+                } else if (FocusModes.blockerEnabled(this)) {
+                    activateMode(validKey);
+                } else {
+                    showAccessibilitySetup(validKey);
+                }
+                return;
+            }
+            pendingModeKey = "";
+            showHome("success");
+            showMessage(selectedPackages.size() + " app(s) saved for " + FocusModes.label(validKey) + " mode.");
+            if (handoffReturnUrl != null) returnToCockpit("success");
+        });
+        addButton("Enable app blocking", () -> {
+            pendingModeKey = validKey;
+            if (selectedPackages.isEmpty()) {
+                showMessage("Save at least one blocked app first.");
+                return;
+            }
+            if (!selectedPackages.equals(savedPackages)) {
+                if (!FocusModes.saveBlockedApps(this, validKey, selectedPackages)) {
+                    showError("Android could not save this mode’s app list.");
+                    return;
+                }
+            }
+            if (FocusModes.blockerEnabled(this)) activateMode(validKey);
+            else showAccessibilitySetup(validKey);
+        });
+        addButton("Back to modes", () -> {
+            pendingModeKey = "";
+            activateAfterModeSave = false;
+            showModeHub();
+        });
+        addReturnButton("cancel");
     }
 
     private void routeReminder(String action, String title, String dueAt) {
@@ -164,6 +439,7 @@ public final class MainActivity extends Activity {
         );
         addButton("Create a reminder", () -> showReminderForm("", 0));
         addButton("View my reminders", () -> showReminderList(""));
+        addButton("Configure device modes", this::showModeHub);
         addButton("Choose photos", () -> {
             libraryAction = "photos";
             libraryRequest = "";
@@ -175,23 +451,10 @@ public final class MainActivity extends Activity {
             openDocumentPicker();
         });
         addText(
-            "Apple HomeKit scenes are available only on iPhone in this version. " +
-                "Local reminder notifications can be delayed by Android battery and notification settings.",
+            "Modes use Android Accessibility to cover only apps you choose. Reminder alerts need notification permission; Android battery settings can delay them.",
             12, MUTED, false, 0, 18, 12, 0
         );
         addReturnButton(returnOutcome);
-    }
-
-    private void showHomeKitUnavailable() {
-        beginPage("HOMEKIT / UNAVAILABLE", "PLATFORM LIMIT");
-        addText("Apple HomeKit cannot be controlled from this Android app.", 20, TEXT, true, 0, 0, 12, 0);
-        addText(
-            "Use the Home module on an iPhone with the configured Xenomind - Home Shortcut. " +
-                "This companion will not pretend that an Android handoff changed your home.",
-            14, MUTED, false, 0, 0, 16, 0
-        );
-        addButton("Return to Android tasks", () -> showHome("error"));
-        addReturnButton("error");
     }
 
     private void showReminderForm(String initialTitle, long dueAt) {
@@ -269,6 +532,7 @@ public final class MainActivity extends Activity {
         }
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            pendingReminderSave = true;
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFICATIONS);
             return;
         }
@@ -279,7 +543,16 @@ public final class MainActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_NOTIFICATIONS) {
-            saveReminder();
+            ReminderBootReceiver.reschedule(this);
+            if (pendingReminderSave) {
+                pendingReminderSave = false;
+                saveReminder();
+            } else {
+                showReminderList("");
+                showMessage(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    ? "Notifications enabled. Future reminders were rescheduled."
+                    : "Notifications remain off. You can still use and complete saved reminders.");
+            }
         }
     }
 
@@ -302,7 +575,9 @@ public final class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT < 33 ||
                     checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
                     if (scheduleReminder(id, pendingTitle, pendingDueAt)) {
-                        showMessage("Reminder saved. Android may delay its notification.");
+                        showMessage(hasExactAlarmAccess()
+                            ? "Reminder saved. Android may apply battery-saving delays."
+                            : "Reminder saved. Android may delay its alert; enable precise timing in the reminder list.");
                     } else {
                         showMessage("Reminder saved without an alert. Check Android's alarm and notification settings.");
                     }
@@ -313,6 +588,13 @@ public final class MainActivity extends Activity {
                 showMessage("Reminder saved on this device. No notification was scheduled.");
             }
             showReminderList("");
+            if (pendingDueAt > System.currentTimeMillis()
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                && !hasExactAlarmAccess()
+                && (Build.VERSION.SDK_INT < 33 ||
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)) {
+                promptForExactAlarmAccess();
+            }
         } catch (JSONException | IllegalStateException error) {
             showError("The local reminder could not be saved: " + error.getMessage());
         }
@@ -371,6 +653,16 @@ public final class MainActivity extends Activity {
                 );
             }
             addButton("Create a reminder", () -> showReminderForm("", 0));
+            if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                addButton("Enable reminder notifications", () -> requestPermissions(
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFICATIONS));
+            } else if (!notificationsEnabled()) {
+                addButton("Open notification settings", this::openNotificationSettings);
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !hasExactAlarmAccess()) {
+                addButton("Enable precise reminder timing", this::requestExactAlarmAccess);
+            }
             addButton("Back to companion", this::showHome);
             addReturnButton();
         } catch (JSONException error) {
@@ -430,10 +722,64 @@ public final class MainActivity extends Activity {
             int flags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
             PendingIntent pending = PendingIntent.getBroadcast(this, id, alarmIntent, flags);
-            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarms.canScheduleExactAlarms()) {
+                try {
+                    alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+                } catch (SecurityException permissionChanged) {
+                    alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+                }
+            } else {
+                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+            }
             return true;
         } catch (SecurityException | IllegalStateException error) {
             return false;
+        }
+    }
+
+    private boolean hasExactAlarmAccess() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true;
+        AlarmManager alarms = getSystemService(AlarmManager.class);
+        return alarms != null && alarms.canScheduleExactAlarms();
+    }
+
+    private boolean notificationsEnabled() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return true;
+        android.app.NotificationManager manager = getSystemService(android.app.NotificationManager.class);
+        return manager != null && manager.areNotificationsEnabled();
+    }
+
+    private void openNotificationSettings() {
+        Intent settingsIntent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+        try {
+            refreshRemindersOnResume = true;
+            startActivity(settingsIntent);
+        } catch (ActivityNotFoundException error) {
+            refreshRemindersOnResume = false;
+            showError("Open Android Settings, then allow notifications for Xenomind Companion.");
+        }
+    }
+
+    private void promptForExactAlarmAccess() {
+        new AlertDialog.Builder(this)
+            .setTitle("Improve reminder timing?")
+            .setMessage("Android can delay standard reminders by up to an hour. Allow Xenomind to set exact alarms for alerts close to the time you choose.")
+            .setNegativeButton("Keep delayed alerts", (dialog, which) -> dialog.dismiss())
+            .setPositiveButton("Open alarm settings", (dialog, which) -> requestExactAlarmAccess())
+            .show();
+    }
+
+    private void requestExactAlarmAccess() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || hasExactAlarmAccess()) return;
+        Intent settingsIntent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+            .setData(Uri.parse("package:" + getPackageName()));
+        try {
+            refreshAlarmsOnResume = true;
+            startActivity(settingsIntent);
+        } catch (ActivityNotFoundException error) {
+            refreshAlarmsOnResume = false;
+            showError("Open Android Settings, then allow Xenomind under Alarms & reminders.");
         }
     }
 
@@ -449,6 +795,8 @@ public final class MainActivity extends Activity {
             alarms.cancel(pending);
             pending.cancel();
         }
+        android.app.NotificationManager notifications = getSystemService(android.app.NotificationManager.class);
+        if (notifications != null) notifications.cancel(id);
     }
 
     private void openDocumentPicker() {
@@ -787,6 +1135,7 @@ public final class MainActivity extends Activity {
         Uri callback = original.buildUpon().clearQuery()
             .appendQueryParameter("handoff", outcome)
             .appendQueryParameter("id", original.getQueryParameter("id"))
+            .appendQueryParameter("modeAction", "mode".equals(handoffModule) ? handoffAction : "")
             .build();
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, callback));

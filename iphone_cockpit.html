@@ -948,7 +948,7 @@
       <div class="hero-copy">
         <div class="eyebrow"><span class="eyebrow-line"></span> YOUR PHONE, AT HAND</div>
         <h1 id="hero-title">Make room<br><span>in your head.</span></h1>
-        <p>Set a reminder, choose photos or files, or start a Home scene.</p>
+        <p>Set a reminder, choose photos or files, or start an app-blocking mode.</p>
       </div>
       <div class="orb-wrap">
         <button class="voice-node" id="voice-node" type="button" aria-label="Press and hold to speak an intent" aria-describedby="voice-hint" data-state="idle">
@@ -962,7 +962,7 @@
     <div class="system-tabs" role="tablist" aria-label="Choose a task system">
       <button class="system-tab" id="tab-reminders" type="button" role="tab" aria-selected="true" aria-controls="reminders" tabindex="0" data-system="reminders">Reminders</button>
       <button class="system-tab" id="tab-library" type="button" role="tab" aria-selected="false" aria-controls="library" tabindex="-1" data-system="library">Photos &amp; Files</button>
-      <button class="system-tab" id="tab-home" type="button" role="tab" aria-selected="false" aria-controls="home" tabindex="-1" data-system="home">Home</button>
+      <button class="system-tab" id="tab-home" type="button" role="tab" aria-selected="false" aria-controls="home" tabindex="-1" data-system="home">Modes</button>
       <button class="system-tab" id="tab-notes" type="button" role="tab" aria-selected="false" aria-controls="notes" tabindex="-1" data-system="notes">Notes</button>
     </div>
     <section class="intent-composer" id="intent-composer" aria-label="Intent composer">
@@ -1037,30 +1037,30 @@
             <span class="module-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 10 8.5-7 8.5 7v10a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V10Z"/><path d="M9 21v-7h6v7m-2-12a1 1 0 1 0-2 0v2h2V9Z"/></svg>
             </span>
-            <span><h3 id="home-title">Home</h3><p>Change the atmosphere</p></span>
+            <span><h3 id="home-title">Modes</h3><p>Choose what can interrupt you</p></span>
           </div>
           <span class="module-index" id="home-platform-label">SYS / 03</span>
         </div>
         <div class="module-body">
-          <div class="scene-grid" role="group" aria-label="HomeKit scene">
-            <button class="scene-button" type="button" data-scene="Arrive Home" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11 12 4l9 7M5.5 9.5V20h13V9.5M10 20v-6h4v6"/></svg><span>Arrive home</span>
+          <div class="scene-grid" role="group" aria-label="Device focus modes">
+            <button class="scene-button" type="button" data-mode-key="focus" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2m10 8h-2M4 12H2m10 10v-2"/></svg><span>Focus</span>
             </button>
-            <button class="scene-button" type="button" data-scene="Deep Focus" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2m10 8h-2M4 12H2m10 10v-2"/></svg><span>Deep focus</span>
+            <button class="scene-button" type="button" data-mode-key="rehearsal" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19V5l11-2v14M4 19a2.5 2.5 0 1 0 2.5 2A2.5 2.5 0 0 0 4 19Zm11-2a2.5 2.5 0 1 0 2.5 2A2.5 2.5 0 0 0 15 17Z"/><path d="m15 7 5-1v9"/></svg><span>Rehearsal</span>
             </button>
-            <button class="scene-button" type="button" data-scene="Evening" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 15.5A8 8 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/><path d="m16 4 .7 1.6L18.5 6l-1.8.5L16 8l-.6-1.5L14 6l1.4-.4L16 4Z"/></svg><span>Evening</span>
-            </button>
-            <button class="scene-button" type="button" data-scene="All Off" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v8"/></svg><span>All off</span>
+            <button class="scene-button" type="button" data-mode-key="rest" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 15.5A8 8 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/><path d="m16 4 .7 1.6L18.5 6l-1.8.5L16 8l-.6-1.5L14 6l1.4-.4L16 4Z"/></svg><span>Rest</span>
             </button>
           </div>
-          <p class="helper" id="home-helper">Choose a preset or enter the exact scene name. Your Xenomind - Home Shortcut maps it to a Home scene and handles permissions.</p>
+          <p class="helper" id="home-helper">Choose a mode to block apps you select on this phone. Configure a different blocked-app list for each mode in the Xenomind companion.</p>
           <button class="action-button" id="send-home" type="button">
-            Activate selected scene
+            Start selected mode
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
           </button>
+          <button class="plain-button" id="configure-modes" type="button">Configure blocked apps</button>
+          <button class="plain-button" id="stop-mode" type="button" hidden>End active mode</button>
+          <p class="helper" id="mode-status" role="status" aria-live="polite">Mode settings and app blocking stay on this device.</p>
         </div>
       </section>
 
@@ -1162,8 +1162,7 @@
         <ol>
           <li><strong>Xenomind - Reminder:</strong> receive a JSON text request; branch on create, list, or complete. Use Apple Reminders actions.</li>
           <li><strong>Xenomind - Library:</strong> branch on photos, files, or organize; use iOS selection actions and require confirmation before changes or sharing.</li>
-          <li><strong>Xenomind - Home:</strong> match the requested scene and run it with your Home permissions. HomeKit is iOS-only in this version.</li>
-          <li><strong>Xenomind - Chain:</strong> process the payload's <code>steps</code> in order. Add your own Focus, Home, Reminders, and picker actions; iOS may still ask for permission or confirmation.</li>
+          <li><strong>Xenomind - Chain:</strong> process the payload's <code>steps</code> in order. Add your own Focus, Reminders, and picker actions; iOS may still ask for permission or confirmation.</li>
         </ol>
         <p>Enable receiving Text input. Use <strong>Get Dictionary from Input</strong> to parse the JSON; shortcut names must match the fields below. The full action-by-action setup guide is <a href="./IOS_SHORTCUTS.md" target="_blank" rel="noopener noreferrer">available here</a>. A returned handoff only confirms the Shortcut returned to this page.</p>
       </div>
@@ -1171,13 +1170,16 @@
         <h3>Shortcut names</h3>
         <div class="shortcut-setting"><label for="shortcut-reminder">Reminder Shortcut</label><input class="text-field" id="shortcut-reminder" maxlength="80"></div>
         <div class="shortcut-setting"><label for="shortcut-library">Photos &amp; Files Shortcut</label><input class="text-field" id="shortcut-library" maxlength="80"></div>
-        <div class="shortcut-setting"><label for="shortcut-home">Home Shortcut</label><input class="text-field" id="shortcut-home" maxlength="80"></div>
         <div class="shortcut-setting"><label for="shortcut-chain">Quick Chains Shortcut</label><input class="text-field" id="shortcut-chain" maxlength="80"></div>
-        <p>Names are saved only in this browser. The page never reads your reminders, library, or Home data.</p>
+        <p>Names are saved only in this browser. The page never reads your reminders or library.</p>
+      </div>
+      <div class="dialog-section" id="ios-modes-section">
+        <h3>iPhone app blocking</h3>
+        <p>Open <code>ios/XenomindModes.xcodeproj</code> on a Mac in Xcode, set your developer team, then install the app on your iPhone. Choose apps, categories, or websites separately for Focus, Rehearsal, and Rest. iOS asks for Screen Time authorization. Apple requires its Family Controls entitlement for distribution; see <a href="./IOS_SHORTCUTS.md" target="_blank" rel="noopener noreferrer">the setup guide</a>.</p>
       </div>
       <div class="dialog-section" id="android-setup-section">
         <h3>Android / Native companion</h3>
-        <p>Import the project from the <code>android</code> folder into Android Studio, build, and install it. The source handles local reminders and the Android photo/file picker; HomeKit is deliberately unavailable. This source has not yet been built or verified on a device.</p>
+        <p>Import the project from <code>android</code> into Android Studio, build, and install it. Choose apps separately for each mode and enable the Xenomind focus service in Android Accessibility settings. Reminders ask for notification permission and can ask for exact-alarm access; Android may delay alerts when precise timing is off. This source has not yet been built or verified on a device.</p>
       </div>
       <div class="dialog-actions">
         <button class="plain-button" id="cancel-settings" type="button">Cancel</button>
@@ -1201,12 +1203,12 @@
       const defaults = {
         reminder: "Xenomind - Reminder",
         library: "Xenomind - Library",
-        home: "Xenomind - Home",
         chain: "Xenomind - Chain"
       };
       const storageKey = "xenomind-shortcut-names-v1";
       const activityKey = "xenomind-handoffs-v1";
       const notesKey = "xenomind-stage-notes-v1";
+      const activeModeStorageKey = "xenomind-active-mode-v1";
       const settingsDialog = document.getElementById("setup-dialog");
       const toast = document.getElementById("toast");
       const activityList = document.getElementById("activity-list");
@@ -1239,7 +1241,13 @@
         || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       let selectedLibraryTask = "photos";
       let selectedReminderAction = "create";
-      let selectedScene = "";
+      let selectedModeKey = "focus";
+      let activeModeKey = "";
+      try {
+        activeModeKey = localStorage.getItem(activeModeStorageKey) || "";
+      } catch (_error) {
+        activeModeKey = "";
+      }
       let toastTimer;
       let recognition;
       let recognitionStarted = false;
@@ -1252,22 +1260,10 @@
         ? "Android opens its system picker; copies keep the original items."
         : "Your iPhone Shortcut opens the system picker for items you choose.";
 
-      if (isAndroid) {
-        const home = document.getElementById("home");
-        document.getElementById("tab-home").hidden = true;
-        home.classList.add("unavailable");
-        home.querySelectorAll("button, input").forEach((control) => {
-          control.disabled = true;
-          control.setAttribute("aria-disabled", "true");
-        });
-        document.getElementById("home-platform-label").textContent = "iOS ONLY";
-        document.getElementById("home-helper").textContent =
-          "Apple HomeKit works only through Apple Home on iPhone. This module is disabled on Android.";
-        document.querySelector(".chain-bar").hidden = true;
-      }
+      if (isAndroid) document.querySelector(".chain-bar").hidden = true;
       document.getElementById("permission-note").textContent = isAndroid
-        ? "Reminders stay in XENOMIND. Photos and files are chosen in Android's picker."
-        : "Shortcuts and iOS pickers keep access permissioned. You choose what each action can do.";
+        ? "Reminders and focus modes stay on this Android device. Photos and files are chosen in Android's picker."
+        : "Reminders and focus modes stay on this iPhone. You choose which apps a mode can block.";
 
       const safariOnIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
         && /Safari/i.test(navigator.userAgent)
@@ -1870,7 +1866,6 @@
       const shortcutByCategory = {
         "Reminders": { module: "reminder", key: "reminder" },
         "Photos & Files": { module: "library", key: "library" },
-        "Home": { module: "home", key: "home" },
         "Quick Chain": { module: "chain", key: "chain" }
       };
       const actionLabels = {
@@ -1880,7 +1875,6 @@
         photos: "Choose photos",
         files: "Choose files",
         organize: "Copy files",
-        scene: "Activate scene"
       };
       const libraryButtonLabels = {
         photos: "Open photo picker",
@@ -1915,6 +1909,7 @@
               action: actionType,
               text: noteText,
               ...(options.dueAt ? { dueAt: options.dueAt } : {}),
+              ...(options.sceneKey ? { sceneKey: options.sceneKey } : {}),
               ...(options.steps ? { steps: options.steps } : {})
             };
         const url = new URL("shortcuts://x-callback-url/run-shortcut");
@@ -1965,6 +1960,56 @@
         dispatchToiOS(category, action, text, { dueAt, label, ...options });
       }
 
+      const modeLabels = { focus: "Focus", rehearsal: "Rehearsal", rest: "Rest" };
+
+      function refreshModeControls() {
+        const label = modeLabels[selectedModeKey] || modeLabels.focus;
+        document.querySelectorAll("[data-mode-key]").forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.modeKey === selectedModeKey));
+        });
+        document.getElementById("send-home").textContent = "Start " + label + " mode";
+        const stopButton = document.getElementById("stop-mode");
+        stopButton.hidden = !modeLabels[activeModeKey];
+        document.getElementById("mode-status").textContent = modeLabels[activeModeKey]
+          ? modeLabels[activeModeKey] + " mode is active on this phone. Its app list is stored on-device."
+          : "No mode is active. Choose apps separately for each mode on this phone.";
+      }
+
+      function dispatchNativeMode(action, modeKey) {
+        if (!isAndroid && !isAppleMobile) {
+          announce("Open XENOMIND on your iPhone or Android phone to block apps with a focus mode.");
+          return;
+        }
+        const modeLabel = modeLabels[modeKey];
+        if (action !== "settings" && !modeLabel) {
+          announce("Choose a valid device mode.");
+          return;
+        }
+        const label = action === "settings" ? "Configure blocked apps"
+          : action === "stop" ? "End " + (modeLabel || "active") + " mode"
+            : "Start " + modeLabel + " mode";
+        const id = makeId();
+        const payload = { module: "mode", action, modeKey: modeKey || "" };
+        if (!recordHandoff({
+          id, category: "Modes", actionType: action, noteText: modeLabel || "",
+          payload, shortcutKey: "", label, status: "Dispatched"
+        })) return;
+        const url = new URL("xenomind://run");
+        url.searchParams.set("module", "mode");
+        url.searchParams.set("action", action);
+        if (modeKey) url.searchParams.set("modeKey", modeKey);
+        url.searchParams.set("callback", callbackUrl(id));
+        setNeuralState("dispatching");
+        haptic([12, 35, 12]);
+        announce("Opening the phone's focus-mode controls. Confirm the blocked-app list on your device.");
+        window.location.href = url.toString();
+        window.setTimeout(() => {
+          if (document.getElementById("voice-node").dataset.state === "dispatching") {
+            setNeuralState("idle");
+          }
+        }, 5000);
+      }
+
       function readActivity() {
         const saved = readObject(activityKey, {});
         return Array.isArray(saved.items) ? saved.items.filter((item) =>
@@ -2003,6 +2048,19 @@
         match.status = outcome === "success" ? "Confirmed"
           : outcome === "error" ? "Failed" : "Canceled";
         match.returnedAt = new Date().toISOString();
+        if (outcome === "success" && match.payload.module === "mode") {
+          const returnedModeAction = params.get("modeAction") || match.payload.action;
+          if (returnedModeAction === "activate" || returnedModeAction === "stop") {
+            activeModeKey = returnedModeAction === "activate" ? match.payload.modeKey || "" : "";
+            try {
+              if (activeModeKey) localStorage.setItem(activeModeStorageKey, activeModeKey);
+              else localStorage.removeItem(activeModeStorageKey);
+            } catch (_error) {
+              announce("The mode changed, but this browser could not save its status.");
+            }
+          }
+          refreshModeControls();
+        }
         const errorMessage = params.get("errorMessage") || params.get("message") || params.get("error");
         if (outcome === "error" && errorMessage) match.error = errorMessage.slice(0, 240);
         try {
@@ -2093,6 +2151,10 @@
           if (droppedExpiredDueTime) announce("That reminder time has passed, so the replay will have no due time.");
           return;
         }
+        if ((isAndroid || isAppleMobile) && replayPayload.module === "mode") {
+          dispatchNativeMode(replayPayload.action, replayPayload.modeKey);
+          return;
+        }
         if (isAndroid && replayPayload.module) {
           const id = makeId();
           if (!recordHandoff({
@@ -2119,7 +2181,6 @@
         const names = shortcutNames();
         document.getElementById("shortcut-reminder").value = names.reminder;
         document.getElementById("shortcut-library").value = names.library;
-        document.getElementById("shortcut-home").value = names.home;
         document.getElementById("shortcut-chain").value = names.chain;
       }
 
@@ -2127,6 +2188,7 @@
         populateSettings();
         document.getElementById("ios-shortcuts-section").hidden = isAndroid;
         document.getElementById("ios-shortcut-names").hidden = isAndroid;
+        document.getElementById("ios-modes-section").hidden = !isAppleMobile;
         document.getElementById("android-setup-section").hidden = !isAndroid;
         document.getElementById("save-settings").hidden = isAndroid;
         document.getElementById("setup-title").textContent = isAndroid
@@ -2143,7 +2205,6 @@
         const names = {
           reminder: document.getElementById("shortcut-reminder").value.trim(),
           library: document.getElementById("shortcut-library").value.trim(),
-          home: document.getElementById("shortcut-home").value.trim(),
           chain: document.getElementById("shortcut-chain").value.trim()
         };
         if (Object.values(names).some((name) => !name)) {
@@ -2166,8 +2227,8 @@
           const wasSelected = tab.getAttribute("aria-selected") === "true";
           if (!wasSelected) {
             intentInput.value = "";
-            selectedScene = "";
-            document.querySelectorAll("[data-scene]").forEach((button) =>
+            selectedModeKey = "focus";
+            document.querySelectorAll("[data-mode-key]").forEach((button) =>
               button.setAttribute("aria-pressed", "false")
             );
           }
@@ -2179,6 +2240,7 @@
           });
           setNotesMode(tab.dataset.system === "notes");
           refreshComposer();
+          if (tab.dataset.system === "home") refreshModeControls();
           if (!wasSelected) haptic();
         });
         tab.addEventListener("keydown", (event) => {
@@ -2208,9 +2270,9 @@
           evening: "Choose photos to back up, or files to arrange."
         },
         home: {
-          morning: "Set the tone for the day.",
-          afternoon: "Choose a scene, then let Home handle it.",
-          evening: "Set an evening scene with one tap."
+          morning: "Block distracting apps while you get started.",
+          afternoon: "Use a separate app list for focus or rehearsal.",
+          evening: "Block the apps you want to avoid before bed."
         }
       };
 
@@ -2219,16 +2281,16 @@
         const system = activeTab ? activeTab.dataset.system : "reminders";
         const isNotes = system === "notes";
         const reminderNeedsText = system !== "reminders" || selectedReminderAction !== "list";
-        intentComposer.hidden = isNotes || !reminderNeedsText;
+        intentComposer.hidden = isNotes || system === "home" || !reminderNeedsText;
         document.querySelector(".chain-bar").hidden = isAndroid || isNotes;
-        if (isNotes) return;
+        if (isNotes || system === "home") return;
         if (system === "reminders") {
           intentLabel.textContent = selectedReminderAction === "complete"
             ? "REMINDER TO FIND" : "YOUR NEXT REMINDER";
         } else if (system === "library") {
           intentLabel.textContent = "OPTIONAL REQUEST";
         } else {
-          intentLabel.textContent = "SCENE OR ACCESSORY";
+          intentLabel.textContent = "DEVICE MODE";
         }
         intentHint.textContent = timeHints[system][timeOfDay];
       }
@@ -2248,7 +2310,6 @@
           const label = isDeepWork ? "Deep Work" : "End of Day Sync";
           const steps = isDeepWork
             ? [
-                { category: "Home", actionType: "scene", noteText: "Deep Focus" },
                 { category: "Focus", actionType: "set_focus", noteText: "Do Not Disturb" },
                 {
                   category: "Reminders",
@@ -2283,6 +2344,8 @@
         const words = transcript.toLowerCase();
         const cleaned = transcript.replace(/^\s*(please\s+)?(remind me to|add a reminder to|remember to|set a reminder to|find|open|show|back up|backup|copy|turn on|turn off|set|activate)\s+/i, "").trim();
         const isReminderRequest = /\b(remind me|remember to|add a reminder|set a reminder|reminders?|tasks?|to-dos?)\b/.test(words);
+        const isModeRequest = !isReminderRequest
+          && /\b(focus|rehearsal|practice mode|practice session|rest mode|sleep mode|block apps|block social|social media|end focus|stop focus|pause apps|unblock apps)\b/.test(words);
         let category;
         if (!isReminderRequest && /\b(photo|photos|picture|pictures|camera|file|files|backup|back up|copy)\b/.test(words)) {
           category = "library";
@@ -2291,25 +2354,14 @@
           document.getElementById("tab-library").click();
           document.querySelector(`[data-library-task="${task}"]`).click();
           intentInput.value = cleaned || transcript;
-        } else if (!isReminderRequest && /\b(home|light|lights|scene|focus|evening)\b/.test(words)) {
-          if (isAndroid) {
-            announce("HomeKit is iPhone-only. The Android companion cannot control Apple Home.");
-            return;
-          }
+        } else if (isModeRequest) {
           category = "home";
           document.getElementById("tab-home").click();
-          const sceneButton = [...document.querySelectorAll("[data-scene]")].find((button) =>
-            words.includes(button.dataset.scene.toLowerCase())
-              || (button.dataset.scene === "Deep Focus" && /\b(deep work|focus)\b/.test(words))
-          );
-          if (sceneButton) sceneButton.click();
-          else {
-            selectedScene = "";
-            intentInput.value = cleaned || transcript;
-            document.querySelectorAll("[data-scene]").forEach((button) =>
-              button.setAttribute("aria-pressed", "false")
-            );
-          }
+          const stopMode = /\b(end|stop|disable|turn off)\b/.test(words);
+          const modeKey = /\b(rehearsal|practice)\b/.test(words) ? "rehearsal"
+            : /\b(rest|sleep|bedtime)\b/.test(words) ? "rest" : "focus";
+          if (stopMode && activeModeKey) dispatchNativeMode("stop", activeModeKey);
+          else document.querySelector(`[data-mode-key="${modeKey}"]`).click();
         } else {
           category = "reminders";
           document.getElementById("tab-reminders").click();
@@ -2339,7 +2391,8 @@
           document.querySelector(`[data-reminder-action="${action}"]`).click();
         }
         document.getElementById("tab-" + category).click();
-        announce("Voice intent added to " + (category === "library" ? "Photos & Files" : category) + ". Review it before sending.");
+        announce("Voice intent added to " + (category === "library" ? "Photos & Files"
+          : category === "home" ? "Modes" : category) + ". Review it before sending.");
       }
 
       function beginVoiceCapture(event) {
@@ -2485,39 +2538,26 @@
           { actionLabel: actionLabels[selectedLibraryTask] });
       });
 
-      document.querySelectorAll("[data-scene]").forEach((button) => {
+      document.querySelectorAll("[data-mode-key]").forEach((button) => {
         button.addEventListener("click", () => {
-          selectedScene = button.dataset.scene;
-          intentInput.value = selectedScene;
-          document.getElementById("send-home").textContent = "Activate " + selectedScene;
-          document.querySelectorAll("[data-scene]").forEach((option) => {
+          selectedModeKey = button.dataset.modeKey;
+          document.querySelectorAll("[data-mode-key]").forEach((option) => {
             option.setAttribute("aria-pressed", String(option === button));
           });
+          refreshModeControls();
         });
       });
-      intentInput.addEventListener("input", () => {
-        const currentScene = [...document.querySelectorAll("[data-scene]")].find((button) =>
-          button.dataset.scene === intentInput.value.trim()
-        );
-        selectedScene = currentScene ? currentScene.dataset.scene : "";
-        document.querySelectorAll("[data-scene]").forEach((button) =>
-          button.setAttribute("aria-pressed", String(button === currentScene))
-        );
-        document.getElementById("send-home").textContent = selectedScene
-          ? "Activate " + selectedScene : "Activate selected scene";
-      });
       document.getElementById("send-home").addEventListener("click", () => {
-        if (isAndroid) {
-          announce("HomeKit is not available on Android.");
-          return;
-        }
-        const scene = selectedScene || intentInput.value.trim();
-        if (!scene) {
-          announce("Choose a scene or enter its name.");
-          return;
-        }
-        openHandoff("home", "scene", scene, "Home: " + scene);
+        dispatchNativeMode("activate", selectedModeKey);
       });
+      document.getElementById("configure-modes").addEventListener("click", () => {
+        dispatchNativeMode("settings", selectedModeKey);
+      });
+      document.getElementById("stop-mode").addEventListener("click", () => {
+        if (!activeModeKey) return;
+        dispatchNativeMode("stop", activeModeKey);
+      });
+      refreshModeControls();
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       let brainFramePending = false;
