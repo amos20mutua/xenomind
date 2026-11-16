@@ -1253,6 +1253,7 @@
       let recognition;
       let recognitionStarted = false;
       let recognitionWasNotes = false;
+      let voiceCaptureContext = null;
       let voiceCommandResultHandled = false;
       let voiceRecognitionError = "";
       let voicePrivacyAnnounced = false;
@@ -2350,7 +2351,16 @@
 
       function placeVoiceIntent(transcript, parsedCommand = null) {
         const activeTab = systemTabs.find((tab) => tab.getAttribute("aria-selected") === "true");
-        if (activeTab && activeTab.dataset.system === "notes") {
+        const targetSystem = voiceCaptureContext && voiceCaptureContext.system
+          ? voiceCaptureContext.system : activeTab ? activeTab.dataset.system : "reminders";
+        if (targetSystem === "notes") {
+          if (voiceCaptureContext && voiceCaptureContext.noteId !== activeNoteId) {
+            announce("The selected note changed while listening. Dictation was not added; try again in the intended note.");
+            return;
+          }
+          if (!activeTab || activeTab.dataset.system !== "notes") {
+            document.getElementById("tab-notes").click();
+          }
           if (noteBody.readOnly) {
             announce("Choose Edit note before dictating into this note.");
             return;
@@ -2421,12 +2431,12 @@
       }
 
       function isNotesVoiceTarget() {
-        return currentVoiceSystem() === "notes";
+        return recognitionStarted ? recognitionWasNotes : currentVoiceSystem() === "notes";
       }
 
       function parseCommandCandidates(segments) {
         const primary = segments.map((alternatives) => alternatives[0].transcript).join(" ").trim();
-        const context = {
+        const context = voiceCaptureContext || {
           system: currentVoiceSystem(),
           selectedMode: selectedModeKey,
           activeMode: activeModeKey,
@@ -2473,6 +2483,14 @@
         }
 
         recognitionWasNotes = isNotesVoiceTarget();
+        voiceCaptureContext = {
+          system: currentVoiceSystem(),
+          selectedMode: selectedModeKey,
+          activeMode: activeModeKey,
+          libraryTask: selectedLibraryTask,
+          reminderAction: selectedReminderAction,
+          noteId: activeNoteId
+        };
         voiceCommandResultHandled = false;
         voiceRecognitionError = "";
         if (!voicePrivacyAnnounced) {
@@ -2550,6 +2568,7 @@
         currentRecognition.onend = () => {
           if (recognition === currentRecognition) recognition = null;
           recognitionStarted = false;
+          voiceCaptureContext = null;
           if (voiceNode.dataset.state === "listening") setNeuralState("idle");
           refreshVoiceHint();
           if (!recognitionWasNotes && !voiceCommandResultHandled && !voiceRecognitionError) {
@@ -2565,6 +2584,7 @@
         } catch (error) {
           recognition = null;
           recognitionStarted = false;
+          voiceCaptureContext = null;
           setNeuralState("idle");
           refreshVoiceHint();
           announce("Could not start voice input. Check microphone access and try again.");
@@ -2577,6 +2597,7 @@
           recognition.stop();
         } catch (_error) {
           recognitionStarted = false;
+          voiceCaptureContext = null;
           setNeuralState("idle");
           refreshVoiceHint();
         }
