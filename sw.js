@@ -1,8 +1,8 @@
 "use strict";
 
-const CACHE_NAME = "xenomind-shell-v1";
+const CACHE_NAME = "xenomind-shell-v2";
 const SHELL_URL = new URL("/", self.location.origin).href;
-const APP_SHELL = ["/", "/IOS_SHORTCUTS.md", "/manifest.json", "/icon.svg", "/apple-touch-icon.png"]
+const APP_SHELL = ["/", "/IOS_SHORTCUTS.md", "/manifest.json", "/icon.svg", "/apple-touch-icon.png", "/voice_command_parser.js"]
   .map((path) => new URL(path, self.location.origin).href);
 
 self.addEventListener("install", (event) => {

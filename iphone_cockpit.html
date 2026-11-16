@@ -254,7 +254,7 @@
       letter-spacing: .08em;
       pointer-events: none;
     }
-    .voice-hint { position: absolute; bottom: 13px; left: 50%; transform: translateX(-50%); color: #75949a; font-size: 8px; white-space: nowrap; pointer-events: none; }
+    .voice-hint { position: absolute; bottom: 13px; left: 50%; max-width: calc(100vw - 28px); overflow: hidden; transform: translateX(-50%); color: #75949a; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
     .install-banner {
       display: none;
       align-items: center;
@@ -951,11 +951,11 @@
         <p>Set a reminder, choose photos or files, or start an app-blocking mode.</p>
       </div>
       <div class="orb-wrap">
-        <button class="voice-node" id="voice-node" type="button" aria-label="Press and hold to speak an intent" aria-describedby="voice-hint" data-state="idle">
+        <button class="voice-node" id="voice-node" type="button" aria-label="Tap to speak a command. Tap again to stop listening." aria-describedby="voice-hint" aria-pressed="false" data-state="idle">
           <canvas id="brain" aria-hidden="true"></canvas>
           <span class="orb-caption" id="orb-caption">LOCAL / READY</span>
         </button>
-        <span class="voice-hint" id="voice-hint">HOLD TO SPEAK</span>
+        <span class="voice-hint" id="voice-hint">TAP TO SPEAK</span>
       </div>
     </section>
 
@@ -1197,6 +1197,7 @@
   </button>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="./voice_command_parser.js"></script>
   <script>
     (() => {
       "use strict";
@@ -1251,6 +1252,10 @@
       let toastTimer;
       let recognition;
       let recognitionStarted = false;
+      let recognitionWasNotes = false;
+      let voiceCommandResultHandled = false;
+      let voiceRecognitionError = "";
+      let voicePrivacyAnnounced = false;
 
       document.getElementById("platform-state").textContent = isAndroid
         ? "ANDROID COMPANION"
@@ -1700,6 +1705,7 @@
 
       function setNotesMode(enabled) {
         document.body.classList.toggle("notes-mode", enabled);
+        refreshVoiceHint();
         if (enabled) {
           document.getElementById("notes-orb-slot").append(neuralOrb);
           resetStageIdleTimer();
@@ -1925,7 +1931,7 @@
         })) return;
         setNeuralState("dispatching");
         haptic([12, 35, 12]);
-        announce("Handing off to Shortcuts. Review the action on your iPhone.");
+        announce(options.voiceMessage || "Handing off to Shortcuts. Review the action on your iPhone.");
         window.location.href = url.toString();
         setTimeout(() => {
           if (document.getElementById("voice-node").dataset.state === "dispatching") {
@@ -1950,7 +1956,7 @@
           if (text) url.searchParams.set("text", text);
           if (dueAt) url.searchParams.set("dueAt", dueAt);
           url.searchParams.set("callback", callbackUrl(id));
-          announce("Opening the Android companion. Confirm the action on your device.");
+          announce(options.voiceMessage || "Opening the Android companion. Confirm the action on your device.");
           window.location.href = url.toString();
           setTimeout(() => announce("If the companion did not open, install the Android app and try again."), 1500);
           return;
@@ -1975,13 +1981,13 @@
           : "No mode is active. Choose apps separately for each mode on this phone.";
       }
 
-      function dispatchNativeMode(action, modeKey) {
+      function dispatchNativeMode(action, modeKey, voiceMessage = "") {
         if (!isAndroid && !isAppleMobile) {
           announce("Open XENOMIND on your iPhone or Android phone to block apps with a focus mode.");
           return;
         }
         const modeLabel = modeLabels[modeKey];
-        if (action !== "settings" && !modeLabel) {
+        if (action !== "settings" && action !== "stop" && !modeLabel) {
           announce("Choose a valid device mode.");
           return;
         }
@@ -2001,7 +2007,11 @@
         url.searchParams.set("callback", callbackUrl(id));
         setNeuralState("dispatching");
         haptic([12, 35, 12]);
-        announce("Opening the phone's focus-mode controls. Confirm the blocked-app list on your device.");
+        announce(voiceMessage || (action === "settings"
+          ? "Opening " + (modeLabel || "device") + " mode settings. Choose the apps you want blocked."
+          : action === "stop"
+            ? "Ending " + (modeLabel || "active") + " mode on this phone."
+            : "Starting " + modeLabel + " mode on this phone. Approve any required phone permissions."));
         window.location.href = url.toString();
         window.setTimeout(() => {
           if (document.getElementById("voice-node").dataset.state === "dispatching") {
@@ -2326,7 +2336,7 @@
         });
       });
 
-      function placeVoiceIntent(transcript) {
+      function placeVoiceIntent(transcript, parsedCommand = null) {
         const activeTab = systemTabs.find((tab) => tab.getAttribute("aria-selected") === "true");
         if (activeTab && activeTab.dataset.system === "notes") {
           if (noteBody.readOnly) {
@@ -2341,118 +2351,251 @@
           announce("Dictation added to this note.");
           return;
         }
-        const words = transcript.toLowerCase();
-        const cleaned = transcript.replace(/^\s*(please\s+)?(remind me to|add a reminder to|remember to|set a reminder to|find|open|show|back up|backup|copy|turn on|turn off|set|activate)\s+/i, "").trim();
-        const isReminderRequest = /\b(remind me|remember to|add a reminder|set a reminder|reminders?|tasks?|to-dos?)\b/.test(words);
-        const isModeRequest = !isReminderRequest
-          && /\b(focus|rehearsal|practice mode|practice session|rest mode|sleep mode|block apps|block social|social media|end focus|stop focus|pause apps|unblock apps)\b/.test(words);
-        let category;
-        if (!isReminderRequest && /\b(photo|photos|picture|pictures|camera|file|files|backup|back up|copy)\b/.test(words)) {
-          category = "library";
-          const task = /\b(copy|backup|back up)\b/.test(words) ? "organize"
-            : /\b(file|files)\b/.test(words) ? "files" : "photos";
-          document.getElementById("tab-library").click();
-          document.querySelector(`[data-library-task="${task}"]`).click();
-          intentInput.value = cleaned || transcript;
-        } else if (isModeRequest) {
-          category = "home";
-          document.getElementById("tab-home").click();
-          const stopMode = /\b(end|stop|disable|turn off)\b/.test(words);
-          const modeKey = /\b(rehearsal|practice)\b/.test(words) ? "rehearsal"
-            : /\b(rest|sleep|bedtime)\b/.test(words) ? "rest" : "focus";
-          if (stopMode && activeModeKey) dispatchNativeMode("stop", activeModeKey);
-          else document.querySelector(`[data-mode-key="${modeKey}"]`).click();
-        } else {
-          category = "reminders";
-          document.getElementById("tab-reminders").click();
-          const refersToReminder = /\b(reminders?|tasks?|to-dos?)\b/.test(words);
-          const asksForList = refersToReminder && (
-            /\b(show|list|view|open)\b/.test(words)
-            || /^\s*(?:please\s+)?find\s+(?:(?:all|my)\s+)?(?:reminders?|tasks?)\s*[?.!]*\s*$/.test(words)
-          );
-          const asksToComplete = refersToReminder
-            && /^\s*(?:please\s+)?(?:find|complete|finish|mark|done with)\b/.test(words);
-          const action = asksForList ? "list" : asksToComplete ? "complete" : "create";
-          let reminderText = cleaned || transcript;
-          if (action === "complete") {
-            reminderText = transcript
-              .replace(/^\s*(?:please\s+)?mark\s+as\s+(?:complete|done)\s+(?:(?:the|this|my|a|an)\s+)?(?:(?:reminder|task)\s+)?/i, "")
-              .replace(/^\s*(?:please\s+)?(?:find|complete|finish|mark|done with)\s+(?:(?:the|this|my|a|an)\s+)?(?:(?:reminder|task)\s+)?/i, "")
-              .replace(/^to\s+/i, "")
-              .replace(/^(?:as\s+)?(?:complete|done)\s+/i, "")
-              .replace(/^(?:the|this|my|a|an)\s+(?:reminder|task)\s+/i, "")
-              .replace(/\s+(?:as\s+)?(?:complete|done)$/i, "")
-              .trim();
-          } else if (action === "list") {
-            reminderText = "";
-          }
-          intentInput.value = reminderText;
-          document.getElementById("reminder-due").value = "";
-          document.querySelector(`[data-reminder-action="${action}"]`).click();
+        const command = parsedCommand || window.XenomindVoiceCommands.parseVoiceCommand(transcript, {
+          system: activeTab ? activeTab.dataset.system : "reminders",
+          selectedMode: selectedModeKey,
+          activeMode: activeModeKey,
+          libraryTask: selectedLibraryTask,
+          reminderAction: selectedReminderAction
+        });
+        const heard = transcript.length > 120 ? transcript.slice(0, 117) + "..." : transcript;
+        const response = `I heard: "${heard}". ${command.response}`;
+
+        if (command.system === "unknown") {
+          intentInput.value = transcript;
+          announce(response);
+          return;
         }
-        document.getElementById("tab-" + category).click();
-        announce("Voice intent added to " + (category === "library" ? "Photos & Files"
-          : category === "home" ? "Modes" : category) + ". Review it before sending.");
+
+        if (command.system === "reminders") {
+          document.getElementById("tab-reminders").click();
+          intentInput.value = command.text;
+          document.querySelector(`[data-reminder-action="${command.action}"]`).click();
+          document.getElementById("reminder-due").value = command.dueValue;
+          const dueWrap = document.getElementById("reminder-due-wrap");
+          dueWrap.open = command.needsTime;
+          if (command.action === "list") {
+            openHandoff("reminder", "list", "", "View reminders", "", { voiceMessage: response });
+            return;
+          }
+          announce(response);
+          return;
+        }
+
+        if (command.system === "library") {
+          document.getElementById("tab-library").click();
+          document.querySelector(`[data-library-task="${command.action}"]`).click();
+          intentInput.value = command.text;
+          openHandoff("library", command.action, command.text,
+            actionLabels[command.action] + (command.text ? ": " + command.text : ""),
+            "", { actionLabel: actionLabels[command.action], voiceMessage: response });
+          return;
+        }
+
+        document.getElementById("tab-home").click();
+        const modeButton = command.modeKey
+          ? document.querySelector(`[data-mode-key="${command.modeKey}"]`) : null;
+        if (modeButton) modeButton.click();
+        if (command.action === "select") {
+          announce(response);
+        } else {
+          dispatchNativeMode(command.action, command.modeKey, response);
+        }
+      }
+
+      function currentVoiceSystem() {
+        const activeTab = systemTabs.find((tab) => tab.getAttribute("aria-selected") === "true");
+        return activeTab ? activeTab.dataset.system : "reminders";
+      }
+
+      function isNotesVoiceTarget() {
+        return currentVoiceSystem() === "notes";
+      }
+
+      function parseCommandCandidates(segments) {
+        const primary = segments.map((alternatives) => alternatives[0].transcript).join(" ").trim();
+        const context = {
+          system: currentVoiceSystem(),
+          selectedMode: selectedModeKey,
+          activeMode: activeModeKey,
+          libraryTask: selectedLibraryTask,
+          reminderAction: selectedReminderAction
+        };
+        const primaryCommand = window.XenomindVoiceCommands.parseVoiceCommand(primary, context);
+        if (primaryCommand.system !== "unknown") return { transcript: primary, command: primaryCommand };
+
+        for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+          for (let alternativeIndex = 1; alternativeIndex < segments[segmentIndex].length; alternativeIndex++) {
+            const candidate = segments.map((alternatives, index) =>
+              alternatives[index === segmentIndex ? alternativeIndex : 0].transcript
+            ).join(" ").trim();
+            const command = window.XenomindVoiceCommands.parseVoiceCommand(candidate, context);
+            if (command.system !== "unknown") return { transcript: candidate, command };
+          }
+        }
+        return { transcript: primary, command: primaryCommand };
+      }
+
+      function refreshVoiceHint() {
+        const notesTarget = isNotesVoiceTarget();
+        const listening = voiceNode.dataset.state === "listening";
+        voiceNode.setAttribute("aria-pressed", String(listening));
+        voiceNode.setAttribute("aria-label", notesTarget
+          ? listening ? "Listening. Release to finish dictation." : "Press and hold to dictate into the selected note."
+          : listening ? "Listening. Tap again to stop." : "Tap to speak a command. Tap again to stop listening.");
+        if (listening) {
+          voiceHint.textContent = notesTarget ? "LISTENING · RELEASE TO FINISH" : "LISTENING · TAP TO STOP";
+        } else {
+          voiceHint.textContent = notesTarget ? "HOLD TO DICTATE" : "TAP TO SPEAK";
+        }
       }
 
       function beginVoiceCapture(event) {
-        if (event.type === "pointerdown" && event.button !== 0) return;
-        event.preventDefault();
+        if (event && event.type === "pointerdown" && event.button !== 0) return;
+        if (event && event.type === "pointerdown") event.preventDefault();
         if (recognitionStarted) return;
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!Recognition) {
-          announce("Voice input is not supported here. Type the intent or choose an action.");
+          announce("Voice input is not supported here. Type the command or choose an action.");
           return;
         }
-        announce("Voice input uses the browser's speech service; avoid sensitive details.");
-        recognition = new Recognition();
-        recognition.lang = navigator.language || "en-US";
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-        recognition.onresult = (resultEvent) => {
-          const transcript = resultEvent.results[0][0].transcript.trim();
-          if (transcript) placeVoiceIntent(transcript);
-        };
-        recognition.onerror = (errorEvent) => {
-          if (errorEvent.error !== "aborted" && errorEvent.error !== "no-speech") {
-            announce(errorEvent.error === "not-allowed"
-              ? "Microphone permission was denied. Allow it in Safari settings and try again."
-              : "Voice input stopped (" + errorEvent.error + "). You can type the intent instead.");
-          } else if (errorEvent.error === "no-speech") {
-            announce("No speech detected. Hold the neural node and try again.");
+
+        recognitionWasNotes = isNotesVoiceTarget();
+        voiceCommandResultHandled = false;
+        voiceRecognitionError = "";
+        if (!voicePrivacyAnnounced) {
+          announce("Voice uses the browser's speech service; avoid sensitive details."
+            + (recognitionWasNotes ? "" : " Listening now. Speak, then tap again to stop."));
+          voicePrivacyAnnounced = true;
+        } else if (!recognitionWasNotes) {
+          announce("Listening. Speak now; tap again to stop.");
+        }
+
+        const currentRecognition = new Recognition();
+        recognition = currentRecognition;
+        currentRecognition.lang = recognitionWasNotes
+          ? navigator.language || "en-US"
+          : navigator.languages && navigator.languages[0]
+            ? navigator.languages[0] : navigator.language || "en-US";
+        currentRecognition.continuous = false;
+        currentRecognition.interimResults = !recognitionWasNotes;
+        currentRecognition.maxAlternatives = recognitionWasNotes ? 1 : 3;
+        currentRecognition.onresult = (resultEvent) => {
+          if (recognitionWasNotes) {
+            const noteTranscript = resultEvent.results[0][0].transcript.trim();
+            if (noteTranscript && !voiceCommandResultHandled) {
+              voiceCommandResultHandled = true;
+              placeVoiceIntent(noteTranscript);
+            }
+            return;
+          }
+
+          const finalSegments = [];
+          let interimTranscript = "";
+          for (let index = resultEvent.resultIndex || 0; index < resultEvent.results.length; index++) {
+            const result = resultEvent.results[index];
+            if (result.isFinal) {
+              const alternatives = [];
+              for (let alternativeIndex = 0; alternativeIndex < result.length; alternativeIndex++) {
+                const alternative = result[alternativeIndex];
+                if (alternative && alternative.transcript) alternatives.push(alternative.transcript);
+              }
+              if (alternatives.length) finalSegments.push(alternatives);
+            } else if (result[0] && result[0].transcript) {
+              interimTranscript += result[0].transcript;
+            }
+          }
+          const finalTranscript = finalSegments.map((alternatives) => alternatives[0]).join(" ").trim();
+          if (interimTranscript && !finalTranscript) {
+            const preview = interimTranscript.trim();
+            voiceHint.textContent = preview.length > 34 ? preview.slice(0, 31) + "..." : preview;
+          }
+          if (finalTranscript.trim() && !voiceCommandResultHandled) {
+            voiceCommandResultHandled = true;
+            const resolved = parseCommandCandidates(finalSegments);
+            try {
+              currentRecognition.stop();
+            } catch (_error) {
+              // Recognition may already have stopped after its final result.
+            }
+            placeVoiceIntent(resolved.transcript, resolved.command);
           }
         };
-        recognition.onend = () => {
+        currentRecognition.onerror = (errorEvent) => {
+          voiceRecognitionError = errorEvent.error || "unknown";
+          const messages = {
+            "not-allowed": "Microphone access was denied. Allow it in browser settings and try again.",
+            "service-not-allowed": "The browser's speech service is blocked. Check browser permissions or type the command.",
+            "audio-capture": "No microphone is available. Check your phone's microphone permission.",
+            network: "Speech recognition could not reach its service. Check your connection and try again.",
+            "no-speech": "I didn't hear speech. Tap the microphone and speak after the listening prompt."
+          };
+          if (voiceRecognitionError !== "aborted") {
+            announce(messages[voiceRecognitionError]
+              || "Voice input stopped. You can type the command instead.");
+          }
+        };
+        currentRecognition.onend = () => {
+          if (recognition === currentRecognition) recognition = null;
           recognitionStarted = false;
-          if (document.getElementById("voice-node").dataset.state === "listening") {
-            setNeuralState("idle");
+          if (voiceNode.dataset.state === "listening") setNeuralState("idle");
+          refreshVoiceHint();
+          if (!recognitionWasNotes && !voiceCommandResultHandled && !voiceRecognitionError) {
+            announce("I didn't get a complete command. Tap to speak and try again.");
           }
         };
         try {
-          recognition.start();
+          currentRecognition.start();
           recognitionStarted = true;
           setNeuralState("listening");
+          refreshVoiceHint();
           haptic(8);
         } catch (error) {
-          announce("Could not start voice input: " + error.message);
+          recognition = null;
+          recognitionStarted = false;
+          setNeuralState("idle");
+          refreshVoiceHint();
+          announce("Could not start voice input. Check microphone access and try again.");
         }
       }
 
       function endVoiceCapture() {
-        if (recognitionStarted && recognition) recognition.stop();
+        if (!recognitionStarted || !recognition) return;
+        try {
+          recognition.stop();
+        } catch (_error) {
+          recognitionStarted = false;
+          setNeuralState("idle");
+          refreshVoiceHint();
+        }
       }
 
       const voiceNode = document.getElementById("voice-node");
-      voiceNode.addEventListener("pointerdown", beginVoiceCapture);
-      voiceNode.addEventListener("pointerup", endVoiceCapture);
-      voiceNode.addEventListener("pointerleave", endVoiceCapture);
-      voiceNode.addEventListener("pointercancel", endVoiceCapture);
+      const voiceHint = document.getElementById("voice-hint");
+      voiceNode.addEventListener("pointerdown", (event) => {
+        if (isNotesVoiceTarget()) beginVoiceCapture(event);
+      });
+      voiceNode.addEventListener("pointerup", () => {
+        if (isNotesVoiceTarget()) endVoiceCapture();
+      });
+      voiceNode.addEventListener("pointerleave", () => {
+        if (isNotesVoiceTarget()) endVoiceCapture();
+      });
+      voiceNode.addEventListener("pointercancel", () => {
+        if (isNotesVoiceTarget()) endVoiceCapture();
+      });
+      voiceNode.addEventListener("click", (event) => {
+        if (isNotesVoiceTarget()) return;
+        if (recognitionStarted) endVoiceCapture();
+        else beginVoiceCapture(event);
+      });
       voiceNode.addEventListener("keydown", (event) => {
-        if (event.code === "Space" && !event.repeat) beginVoiceCapture(event);
+        if (event.code === "Space" && !event.repeat && isNotesVoiceTarget()) beginVoiceCapture(event);
       });
       voiceNode.addEventListener("keyup", (event) => {
-        if (event.code === "Space") endVoiceCapture();
+        if (event.code === "Space" && isNotesVoiceTarget()) endVoiceCapture();
       });
+      refreshVoiceHint();
 
       intentInput.addEventListener("keydown", (event) => {
         if (event.key !== "Enter") return;

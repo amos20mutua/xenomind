@@ -170,6 +170,15 @@ public final class MainActivity extends Activity {
             }
             requestModeActivation(modeKey);
         } else if ("stop".equals(action)) {
+            if (FocusModes.isValid(modeKey)) {
+                String activeMode = FocusModes.activeMode(this);
+                if (!modeKey.equals(activeMode)) {
+                    showError(activeMode.isEmpty()
+                        ? FocusModes.label(modeKey) + " mode is not active."
+                        : FocusModes.label(modeKey) + " mode is not active; " + FocusModes.label(activeMode) + " mode is active.");
+                    return;
+                }
+            }
             pendingModeKey = "";
             if (!FocusModes.clearActive(this)) {
                 showError("Android could not end the active mode. Try again.");

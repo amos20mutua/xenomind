@@ -21,6 +21,7 @@ STATIC_FILES = {
     "/IOS_SHORTCUTS.md": (Path(__file__).with_name("IOS_SHORTCUTS.md"), "text/markdown; charset=utf-8"),
     "/manifest.json": (Path(__file__).with_name("manifest.json"), "application/manifest+json; charset=utf-8"),
     "/sw.js": (Path(__file__).with_name("sw.js"), "text/javascript; charset=utf-8"),
+    "/voice_command_parser.js": (Path(__file__).with_name("voice_command_parser.js"), "text/javascript; charset=utf-8"),
     "/icon.svg": (Path(__file__).with_name("icon.svg"), "image/svg+xml"),
     "/apple-touch-icon.png": (Path(__file__).with_name("apple-touch-icon.png"), "image/png"),
 }
@@ -97,7 +98,7 @@ class CockpitHandler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'none'; script-src 'unsafe-inline'; "
+            "default-src 'none'; script-src 'self' 'unsafe-inline'; "
             "style-src 'unsafe-inline'; img-src 'self' data:; "
             "connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
             "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",

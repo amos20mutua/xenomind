@@ -105,11 +105,13 @@ class IPhoneCockpitServerTests(unittest.TestCase):
         self.assertNotIn('id="intent-input" maxlength="180" autocomplete="off" placeholder=', page)
         self.assertIn("reminder-due-wrap", page)
         self.assertIn("SpeechRecognition", page)
+        self.assertIn('src="./voice_command_parser.js"', page)
 
     def test_pwa_assets_and_callback_query_are_served(self) -> None:
         for path, content_type, marker in (
             ("/manifest.json", "application/manifest+json", '"display": "standalone"'),
             ("/sw.js", "text/javascript", "XENOMIND"),
+            ("/voice_command_parser.js", "text/javascript", "XenomindVoiceCommands"),
             ("/icon.svg", "image/svg+xml", "<svg"),
             ("/apple-touch-icon.png", "image/png", "\x89PNG"),
         ):

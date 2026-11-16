@@ -288,6 +288,11 @@ private struct ModeControlView: View {
             pendingActivation = true
             Task { await authorizeAndStart() }
         case "stop":
+            if let requestedMode = value("modeKey").flatMap(DeviceMode.init(rawValue:)),
+               let activeMode, activeMode != requestedMode {
+                showError("\(requestedMode.title) mode is not active; \(activeMode.title) mode is active.")
+                return
+            }
             let stopCallback = callbackURL ?? UserDefaults.standard.string(forKey: activeModeCallbackKey)
                 .flatMap(URL.init(string:))
             endAllModes()
