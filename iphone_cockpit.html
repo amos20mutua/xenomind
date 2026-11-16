@@ -546,6 +546,9 @@
     .lyrics-import-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .lyrics-import-actions [hidden] { display: none; }
     .lyrics-file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+    .lyrics-import .lyrics-language { margin-top: 7px; }
+    .lyrics-fallback { margin-top: 13px; border-top: 1px solid rgba(117,216,239,.12); padding-top: 10px; }
+    .lyrics-fallback summary { color: #a9c6c8; font-size: 10px; cursor: pointer; }
     .lyrics-import-status { display: block; min-height: 1.5em; margin-top: 8px !important; }
     .lyrics-import-status[data-state="error"] { color: #ff9bad; }
     .notes-panel.stage-mode .lyrics-import { display: none; }
@@ -1111,19 +1114,27 @@
         </div>
         <textarea class="notes-body" id="note-body" maxlength="50000" rows="10" wrap="soft" spellcheck="true" autocapitalize="sentences" aria-describedby="notes-save-state"></textarea>
         <div class="lyrics-import" id="lyrics-import" hidden>
-          <strong>Get lyrics into this note — no login required</strong>
-          <p>YouTube does not let this app read captions from a link alone. Open the video and use its menu to show and copy the transcript, if available, then paste it below. Or choose a captions file (.vtt, .srt, .sbv, or .txt). This stays in your browser.</p>
-          <label class="field-label" for="youtube-lyrics-url">YOUTUBE VIDEO LINK (OPTIONAL)</label>
-          <input class="text-field" id="youtube-lyrics-url" type="url" maxlength="500" autocomplete="url" inputmode="url" placeholder="Paste a YouTube link to open the video">
+          <strong>Generate a lyric draft from YouTube</strong>
+          <p>Paste a public YouTube song link. XENOMIND will listen to the audio and draft the sung words, even when the video has no captions. Band members do not need to sign in. Generated lyrics can be inaccurate; review them together. Use videos you own or have permission to transcribe.</p>
+          <label class="field-label" for="youtube-lyrics-url">YOUTUBE SONG LINK</label>
+          <input class="text-field" id="youtube-lyrics-url" type="url" maxlength="500" autocomplete="url" inputmode="url" placeholder="Paste the YouTube song link">
+          <label class="field-label lyrics-language" for="lyrics-language-hint">LANGUAGE OR PRONUNCIATION HINT (OPTIONAL)</label>
+          <input class="text-field" id="lyrics-language-hint" type="text" maxlength="100" autocomplete="off" placeholder="For example: Swahili, names, or chorus words">
           <div class="lyrics-import-actions">
-            <a class="notes-stage-button" id="open-youtube-video" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" hidden>Open video on YouTube</a>
-            <button class="notes-stage-button" id="choose-lyrics-file" type="button">Choose captions file</button>
-            <input class="lyrics-file-input" id="lyrics-caption-file" type="file" accept=".vtt,.srt,.sbv,.txt,text/vtt,application/x-subrip,text/plain" aria-hidden="true" tabindex="-1">
+            <button class="notes-stage-button" id="generate-youtube-lyrics" type="button">Generate lyric draft</button>
+            <a class="notes-stage-button" id="open-youtube-video" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" hidden>Open video</a>
           </div>
-          <label class="field-label" for="pasted-lyrics">PASTE COPIED TRANSCRIPT OR LYRICS</label>
-          <textarea class="text-field" id="pasted-lyrics" maxlength="50000" rows="5" placeholder="Paste transcript or lyrics here"></textarea>
-          <button class="notes-stage-button" id="import-pasted-lyrics" type="button">Use pasted lyrics</button>
           <p class="lyrics-import-status" id="lyrics-import-status" role="status" aria-live="polite"></p>
+          <details class="lyrics-fallback">
+            <summary>Or paste lyrics or import a captions file</summary>
+            <div class="lyrics-import-actions">
+              <button class="notes-stage-button" id="choose-lyrics-file" type="button">Choose captions file</button>
+              <input class="lyrics-file-input" id="lyrics-caption-file" type="file" accept=".vtt,.srt,.sbv,.txt,text/vtt,application/x-subrip,text/plain" aria-hidden="true" tabindex="-1">
+            </div>
+            <label class="field-label" for="pasted-lyrics">PASTE LYRICS OR TRANSCRIPT</label>
+            <textarea class="text-field" id="pasted-lyrics" maxlength="50000" rows="5" placeholder="Paste text here"></textarea>
+            <button class="notes-stage-button" id="import-pasted-lyrics" type="button">Use pasted text</button>
+          </details>
         </div>
         <div class="notes-save-row">
           <button class="notes-delete-button" id="delete-note" type="button">Delete note</button>
@@ -1471,7 +1482,7 @@
         if (videoId) link.href = "https://www.youtube.com/watch?v=" + encodeURIComponent(videoId);
       }
 
-      function importLyricsText(text, sourceLabel) {
+      function importLyricsText(text, sourceLabel, replaceConfirmed = false) {
         if (noteBody.readOnly || noteCategory.value !== "Lyrics") {
           setLyricsImportStatus("Choose Edit note and open a Lyrics note before importing.", "error");
           return false;
@@ -1485,7 +1496,8 @@
           setLyricsImportStatus("This text exceeds the 50,000-character note limit.", "error");
           return false;
         }
-        if (noteBody.value.trim() && !window.confirm("Replace the current lyrics in this note with the imported text?")) {
+        if (noteBody.value.trim() && !replaceConfirmed
+          && !window.confirm("Replace the current lyrics in this note with the imported text?")) {
           return false;
         }
         noteBody.value = lyrics;
@@ -1493,6 +1505,58 @@
         setLyricsImportStatus("Imported " + sourceLabel + ". Review and correct the lyrics.", "ready");
         announce("Lyrics imported into this note.");
         return true;
+      }
+
+      async function generateYoutubeLyrics() {
+        const button = document.getElementById("generate-youtube-lyrics");
+        const videoId = youtubeVideoId(document.getElementById("youtube-lyrics-url").value);
+        if (!videoId) {
+          setLyricsImportStatus("Paste a valid public YouTube video link.", "error");
+          document.getElementById("youtube-lyrics-url").focus();
+          return;
+        }
+        if (noteBody.readOnly || noteCategory.value !== "Lyrics") {
+          setLyricsImportStatus("Choose Edit note and open a Lyrics note before generating.", "error");
+          return;
+        }
+        const targetNoteId = activeNoteId;
+        const originalText = noteBody.value;
+        if (originalText.trim()
+          && !window.confirm("Replace the current lyrics in this note with a generated lyric draft?")) return;
+
+        button.disabled = true;
+        setLyricsImportStatus("Listening to the public video and drafting the lyrics. This may take a minute.");
+        try {
+          const response = await fetch("/api/transcribe-lyrics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              videoUrl: "https://www.youtube.com/watch?v=" + encodeURIComponent(videoId),
+              languageHint: document.getElementById("lyrics-language-hint").value.trim()
+            })
+          });
+          let result = {};
+          try { result = await response.json(); }
+          catch (_error) { throw new Error("The lyrics service returned an unreadable response."); }
+          if (!response.ok) {
+            throw new Error(result.message || "Lyrics could not be generated. Try again later.");
+          }
+          const lyrics = String(result.lyrics || "").trim();
+          if (!lyrics) throw new Error("No clear vocals were detected in this video.");
+          if (lyrics.length > Number(noteBody.maxLength || 50000)) {
+            throw new Error("The generated lyrics exceed this note's 50,000-character limit.");
+          }
+          if (activeNoteId !== targetNoteId || noteCategory.value !== "Lyrics"
+            || noteBody.readOnly || noteBody.value !== originalText) {
+            throw new Error("The open note changed while lyrics were generating. Reopen the intended Lyrics note and try again.");
+          }
+          importLyricsText(lyrics, "AI-generated lyric draft", true);
+        } catch (error) {
+          console.error("XENOMIND lyric generation failed:", error);
+          setLyricsImportStatus(error.message || "Lyrics could not be generated. Try again later.", "error");
+        } finally {
+          button.disabled = false;
+        }
       }
 
       async function importLyricsFile(file) {
@@ -1680,6 +1744,7 @@
       });
       noteBody.addEventListener("input", queueNoteSave);
       document.getElementById("youtube-lyrics-url").addEventListener("input", updateYoutubeOpenLink);
+      document.getElementById("generate-youtube-lyrics").addEventListener("click", generateYoutubeLyrics);
       document.getElementById("choose-lyrics-file").addEventListener("click", () => {
         document.getElementById("lyrics-caption-file").click();
       });

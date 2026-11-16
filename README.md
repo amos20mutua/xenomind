@@ -27,10 +27,11 @@ timeline, and optional x-callback-url return are served with the app.
 5. Tap an action and review it in the device handoff. Stop the local server
    with **Ctrl+C** when finished.
 
-The server binds to local network interfaces and serves only the cockpit page
-and its four PWA assets, not other project files. Use it only on a trusted
-private network; do not port-forward it or expose it to the public internet. If
-Windows Firewall asks, allow access on private networks only.
+The server binds to local network interfaces and serves the cockpit, its four
+PWA assets, and one lyric-generation endpoint; it does not expose other project
+files. Use it only on a trusted private network; do not port-forward it or
+expose it to the public internet. If Windows Firewall asks, allow access on
+private networks only.
 
 ## Deploy on Netlify
 
@@ -106,16 +107,27 @@ device. Anyone with access to this browser profile may be able to read them.
 In Notes, the enlarged neural sphere floats gently above the editor; this is a
 lightweight transform animation and follows the device's reduced-motion setting.
 
-Lyrics notes can import copied transcript text or a local `.vtt`, `.srt`, `.sbv`,
-or `.txt` captions file. No login or account connection is required; the app
-parses the text in the browser and saves it into the current Lyrics note. Paste
-a YouTube link to open the video, then copy its transcript from YouTube and
-paste it into the Lyrics importer, or choose a captions file. A YouTube link by
-itself cannot fill in lyrics: YouTube's official caption listing and download
-methods require OAuth, and downloading captions also requires permission to
-edit the video ([caption listing](https://developers.google.com/youtube/data/reference/rest/v3/captions/list),
-[caption download](https://developers.google.com/youtube/data/reference/rest/v3/captions/download)).
-Review imported text for lyric accuracy.
+Lyrics notes can generate a lyric draft directly from a public YouTube song
+link, including videos without captions. Band members do not sign in. The app
+sends the link and optional language hint to a Netlify Function, which passes
+the video URL to Gemini's video understanding API; the API key stays on the
+server. One-time owner setup is required: create a Gemini API key in [Google AI
+Studio](https://ai.google.dev/gemini-api/docs/api-key), then add it as
+`GEMINI_API_KEY` in the site's Netlify environment variables with the
+**Functions** scope and redeploy. This setup uses the owner's Google account;
+band members using the app do not sign in. Never put the key in the HTML, Git,
+or a browser setting. The local Python preview also reads `GEMINI_API_KEY` from
+its server environment.
+
+Gemini's direct YouTube URL feature currently supports public videos and is in
+preview; its free tier currently allows up to eight hours of YouTube video per
+day, and limits may change ([Gemini video understanding](https://ai.google.dev/gemini-api/docs/video-understanding)).
+Private and unlisted videos are not supported. Generated words can be wrong,
+especially when vocals are unclear, so review and correct the draft together.
+Use videos you own or have permission to transcribe. The app requests that
+Gemini not store the interaction and saves the resulting draft only in the
+current browser's Lyrics note. A local captions-file and paste import remains
+available as a fallback.
 
 After 10 seconds without interaction, XENOMIND dims its own display; tap
 **Tap to wake** to restore it. In dim mode, a brighter, enlarged alien neural
