@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import math
 import os
 import re
+import secrets
 import socket
 import threading
 import time
@@ -30,6 +32,8 @@ MAX_LYRIC_CHARACTERS = 50000
 LYRIC_RATE_LIMIT_SECONDS = 15
 LYRIC_REQUESTS: dict[str, float] = {}
 LYRIC_REQUESTS_LOCK = threading.Lock()
+LYRIC_JOBS: dict[str, dict[str, object]] = {}
+LYRIC_JOBS_LOCK = threading.Lock()
 
 
 def youtube_video_id(value: str) -> str:
@@ -155,6 +159,15 @@ class CockpitHandler(BaseHTTPRequestHandler):
                 "message": "The lyric generator is not configured. Set GEMINI_API_KEY in the server environment and restart it."
             })
             return
+
+        action = body.get("action", "start")
+        if action not in ("start", "poll", "cleanup", "cancel"):
+            self.send_json(400, {"message": "This lyric analysis action is not supported."})
+            return
+        if action != "start":
+            self.handle_lyrics_job_action(action, str(body.get("jobToken", "")), api_key)
+            return
+
         video_id = youtube_video_id(str(body.get("videoUrl", "")))
         if not video_id:
             self.send_json(400, {"message": "Use a public YouTube video link."})
@@ -165,7 +178,12 @@ class CockpitHandler(BaseHTTPRequestHandler):
         with LYRIC_REQUESTS_LOCK:
             previous = LYRIC_REQUESTS.get(client_ip)
             if previous is not None and now - previous < LYRIC_RATE_LIMIT_SECONDS:
-                self.send_json(429, {"message": "Please wait a few seconds before generating another lyric draft."})
+                retry_after_ms = math.ceil((LYRIC_RATE_LIMIT_SECONDS - (now - previous)) * 1000)
+                self.send_json(429, {
+                    "message": "Please wait a few seconds before generating another lyric draft.",
+                    "retryable": True,
+                    "retryAfterMs": retry_after_ms,
+                })
                 return
             LYRIC_REQUESTS[client_ip] = now
             if len(LYRIC_REQUESTS) > 5000:
@@ -181,54 +199,175 @@ class CockpitHandler(BaseHTTPRequestHandler):
             "Mark words you cannot confidently hear as [unclear] rather than guessing.",
             "Language or pronunciation hint from the band: " + language_hint if language_hint else "",
         ] if part)
-        request_data = json.dumps({
+        request_body = {
             "model": "gemini-3.8-flash",
-            "store": False,
+            "store": True,
+            "background": True,
             "input": [
                 {"type": "text", "text": prompt},
                 {"type": "video", "uri": f"https://www.youtube.com/watch?v={video_id}"},
             ],
             "generation_config": {"thinking_level": "low", "max_output_tokens": 16000},
-        }).encode("utf-8")
-        upstream_request = Request(
-            "https://generativelanguage.googleapis.com/v1beta/interactions",
-            data=request_data,
-            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
-            method="POST",
-        )
+        }
         try:
-            with urlopen(upstream_request, timeout=55) as upstream:
-                result = json.loads(upstream.read().decode("utf-8"))
+            result = self.gemini_request(api_key, "", "POST", request_body)
         except HTTPError as error:
-            message = (
-                "The lyric generator is at its request limit. Try again later." if error.code == 429
-                else "This video could not be analyzed. Check the link and make sure the video is public." if error.code in (400, 404)
-                else "The lyric generator's server key is invalid or does not have API access." if error.code in (401, 403)
-                else "The lyric generator is temporarily unavailable. Try again later."
-            )
+            try:
+                error_body = json.loads(error.read().decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                error_body = {}
+            provider_error = error_body.get("error", {}) if isinstance(error_body, dict) else {}
+            provider_message = str(provider_error.get("message", "")) if isinstance(provider_error, dict) else ""
+            if error.code == 429 and re.search(r"daily|per.day|quota_exceeded|spend limit|billing|credits", provider_message, re.I):
+                message = "Gemini's project quota or spend limit is exhausted. Check the active limits and billing for this API key in Google AI Studio."
+            elif error.code == 429:
+                message = "Gemini returned a 429 request limit. Check the Gemini API limits in Google AI Studio; this may be temporary capacity or a project quota."
+            elif error.code in (400, 404):
+                message = "This video could not be analyzed. Check the link and make sure the video is public."
+            elif error.code in (401, 403):
+                message = "The lyric generator's server key is invalid or does not have API access."
+            else:
+                message = "The lyric generator is temporarily unavailable. Try again later."
             self.send_json(429 if error.code == 429 else 502, {"message": message})
             return
         except (TimeoutError, URLError):
-            self.send_json(504, {"message": "The video took too long to analyze. Try again or use a shorter video."})
+            self.send_json(504, {"message": "Gemini did not confirm that the analysis was queued. Try again; no lyric draft was returned."})
             return
         except (json.JSONDecodeError, UnicodeDecodeError):
             self.send_json(502, {"message": "The lyric generator returned an unreadable response."})
             return
 
-        if not isinstance(result, dict):
-            self.send_json(502, {"message": "The lyric generator returned an unreadable response."})
+        interaction_id = str(result.get("id", "")) if isinstance(result, dict) else ""
+        if not re.fullmatch(r"(?:v1|int)_[A-Za-z0-9_-]{6,200}", interaction_id):
+            self.send_json(502, {"message": "Gemini did not return a valid background job. Try again later."})
             return
-        if result.get("status") and result["status"] != "completed":
-            self.send_json(502, {"message": "The lyric draft did not finish. Try again or use a shorter video."})
+        status = str(result.get("status", ""))
+        if status == "completed":
+            lyrics = extract_gemini_text(result)
+            try:
+                self.gemini_request(api_key, "/" + interaction_id, "DELETE")
+            except (HTTPError, TimeoutError, URLError):
+                pass
+            if not lyrics:
+                self.send_json(422, {"message": "No clear vocals were detected in this video."})
+            elif len(lyrics) > MAX_LYRIC_CHARACTERS:
+                self.send_json(422, {"message": "The lyric draft is too long for one note. Use a shorter video."})
+            else:
+                self.send_json(200, {"status": "completed", "lyrics": lyrics})
+            return
+        if status not in ("queued", "in_progress"):
+            try:
+                self.gemini_request(api_key, "/" + interaction_id, "DELETE")
+            except (HTTPError, TimeoutError, URLError):
+                pass
+            self.send_json(502, {"message": "The lyric draft could not be started. Try again later."})
+            return
+        job_token = secrets.token_urlsafe(32)
+        with LYRIC_JOBS_LOCK:
+            LYRIC_JOBS[job_token] = {"id": interaction_id, "expires": time.time() + 20 * 60}
+        self.send_json(202, {"status": status, "jobToken": job_token, "pollAfterMs": 2500})
+
+    def gemini_request(self, api_key: str, path: str, method: str, body: dict | None = None) -> dict:
+        request_data = json.dumps(body).encode("utf-8") if body is not None else None
+        upstream_request = Request(
+            "https://generativelanguage.googleapis.com/v1beta/interactions" + path,
+            data=request_data,
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": api_key,
+                "Api-Revision": "2026-05-20",
+            },
+            method=method,
+        )
+        with urlopen(upstream_request, timeout=12) as upstream:
+            response_data = upstream.read()
+        if not response_data:
+            return {}
+        result = json.loads(response_data.decode("utf-8"))
+        return result if isinstance(result, dict) else {}
+
+    def handle_lyrics_job_action(self, action: str, job_token: str, api_key: str) -> None:
+        expired_job = None
+        with LYRIC_JOBS_LOCK:
+            job = LYRIC_JOBS.get(job_token)
+            if job and float(job.get("expires", 0)) < time.time():
+                expired_job = LYRIC_JOBS.pop(job_token, None)
+                job = None
+        if expired_job:
+            expired_id = str(expired_job.get("id", ""))
+            if expired_id:
+                try:
+                    self.gemini_request(api_key, "/" + expired_id + "/cancel", "POST", {})
+                except (HTTPError, TimeoutError, URLError):
+                    pass
+                try:
+                    self.gemini_request(api_key, "/" + expired_id, "DELETE")
+                except (HTTPError, TimeoutError, URLError):
+                    pass
+        if not job:
+            self.send_json(400, {"message": "This lyric analysis session has expired. Start the import again."})
+            return
+        interaction_id = str(job["id"])
+        path = "/" + interaction_id
+        try:
+            if action == "cleanup":
+                self.gemini_request(api_key, path, "DELETE")
+                with LYRIC_JOBS_LOCK:
+                    LYRIC_JOBS.pop(job_token, None)
+                self.send_json(200, {"deleted": True})
+                return
+            if action == "cancel":
+                try:
+                    self.gemini_request(api_key, path + "/cancel", "POST", {})
+                except HTTPError:
+                    pass
+                self.gemini_request(api_key, path, "DELETE")
+                with LYRIC_JOBS_LOCK:
+                    LYRIC_JOBS.pop(job_token, None)
+                self.send_json(200, {"deleted": True})
+                return
+
+            result = self.gemini_request(api_key, path, "GET")
+        except HTTPError as error:
+            if error.code in (429, 500, 502, 503, 504):
+                self.send_json(503, {"status": "in_progress", "retryable": True, "retryAfterMs": 4000})
+            elif error.code == 404:
+                with LYRIC_JOBS_LOCK:
+                    LYRIC_JOBS.pop(job_token, None)
+                self.send_json(410, {"message": "Gemini no longer has this lyric analysis. Start the import again."})
+            else:
+                self.send_json(502, {"message": "Gemini could not retrieve this lyric analysis."})
+            return
+        except (TimeoutError, URLError, json.JSONDecodeError, UnicodeDecodeError):
+            self.send_json(503, {"status": "in_progress", "retryable": True, "retryAfterMs": 4000})
+            return
+
+        status = str(result.get("status", ""))
+        if status in ("queued", "in_progress"):
+            self.send_json(202, {"status": status, "pollAfterMs": 3500})
+            return
+        if status != "completed":
+            try:
+                self.gemini_request(api_key, path, "DELETE")
+            except (HTTPError, TimeoutError, URLError):
+                pass
+            with LYRIC_JOBS_LOCK:
+                LYRIC_JOBS.pop(job_token, None)
+            self.send_json(502, {"message": "The lyric draft did not finish. Check the Gemini API limits or try again later."})
             return
         lyrics = extract_gemini_text(result)
         if not lyrics:
+            self.gemini_request(api_key, path, "DELETE")
+            with LYRIC_JOBS_LOCK:
+                LYRIC_JOBS.pop(job_token, None)
             self.send_json(422, {"message": "No clear vocals were detected in this video."})
-            return
-        if len(lyrics) > MAX_LYRIC_CHARACTERS:
+        elif len(lyrics) > MAX_LYRIC_CHARACTERS:
+            self.gemini_request(api_key, path, "DELETE")
+            with LYRIC_JOBS_LOCK:
+                LYRIC_JOBS.pop(job_token, None)
             self.send_json(422, {"message": "The lyric draft is too long for one note. Use a shorter video."})
-            return
-        self.send_json(200, {"lyrics": lyrics})
+        else:
+            self.send_json(200, {"status": "completed", "lyrics": lyrics})
 
     def send_json(self, status: int, body: dict) -> None:
         content = json.dumps(body).encode("utf-8")

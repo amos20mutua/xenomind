@@ -1115,7 +1115,7 @@
         <textarea class="notes-body" id="note-body" maxlength="50000" rows="10" wrap="soft" spellcheck="true" autocapitalize="sentences" aria-describedby="notes-save-state"></textarea>
         <div class="lyrics-import" id="lyrics-import" hidden>
           <strong>Generate a lyric draft from YouTube</strong>
-          <p>Paste a public YouTube song link. Private and unlisted videos are not available to Gemini, even when you can open them with a link. XENOMIND will listen to the audio and draft the sung words, even when the video has no captions. Band members do not need to sign in. Generated lyrics can be inaccurate; review them together. Use videos you own or have permission to transcribe.</p>
+          <p>Paste a public YouTube song link. Private and unlisted videos are not available to Gemini, even when you can open them with a link. XENOMIND will listen to the audio and draft the sung words, even when the video has no captions. Band members do not need to sign in. Generated lyrics can be inaccurate; review them together. Use videos you own or have permission to transcribe. Gemini temporarily stores background analyses; XENOMIND asks Google to delete each interaction when its result is received. If you leave before it finishes, Google keeps that interaction under the project’s normal retention policy.</p>
           <label class="field-label" for="youtube-lyrics-url">YOUTUBE SONG LINK</label>
           <input class="text-field" id="youtube-lyrics-url" type="url" maxlength="500" autocomplete="url" inputmode="url" placeholder="Paste the YouTube song link">
           <label class="field-label lyrics-language" for="lyrics-language-hint">LANGUAGE OR PRONUNCIATION HINT (OPTIONAL)</label>
@@ -1531,30 +1531,92 @@
 
         button.disabled = true;
         beginStageWork();
-        setLyricsImportStatus("Listening to the public video and drafting the lyrics. This may take a minute.");
-        try {
-          const response = await fetch("/api/transcribe-lyrics", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              videoUrl: "https://www.youtube.com/watch?v=" + encodeURIComponent(videoId),
-              languageHint: document.getElementById("lyrics-language-hint").value.trim()
-            })
-          });
-          let result = {};
-          try { result = await response.json(); }
-          catch (_error) {
-            if (response.status === 404) {
-              throw new Error("The lyrics function is not deployed at this site yet. Redeploy the latest Netlify build.");
+        setLyricsImportStatus("Starting background analysis of the public video. This can take a few minutes.");
+        let jobToken = "";
+        const wait = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+        async function sendLyricsAction(payload) {
+          const maxStartRetries = (payload.action || "start") === "start" ? 1 : 0;
+          for (let attempt = 0; ; attempt += 1) {
+            const response = await fetch("/api/transcribe-lyrics", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+            let result = {};
+            try { result = await response.json(); }
+            catch (_error) {
+              if (response.status === 404) {
+                throw new Error("The lyrics function is not deployed at this site yet. Redeploy the latest Netlify build.");
+              }
+              if (response.status === 504) {
+                throw new Error("The lyrics service did not confirm the request. Try again; no lyric draft was returned.");
+              }
+              throw new Error("The lyrics service returned HTTP " + response.status
+                + ". Confirm the latest Netlify deploy includes the lyrics function, then check its function logs.");
             }
-            if (response.status === 504) {
-              throw new Error("The video took too long to analyze. Try a shorter public video or try again later.");
+            if (response.ok) return { response, result };
+            const isStart = (payload.action || "start") === "start";
+            const retryableStartError = isStart && result.retryable && attempt < maxStartRetries
+              && Number(result.retryAfterMs) > 0 && Number(result.retryAfterMs) <= 20000;
+            if (retryableStartError) {
+              const retryDelay = Number(result.retryAfterMs);
+              setLyricsImportStatus((result.message || "Gemini is temporarily limiting requests.")
+                + " Retrying in " + Math.max(1, Math.ceil(retryDelay / 1000)) + " seconds.");
+              await wait(retryDelay);
+              continue;
             }
-            throw new Error("The lyrics service returned HTTP " + response.status
-              + ". Confirm the latest Netlify deploy includes the lyrics function, then check its function logs.");
+            const finalMessage = isStart && attempt > 0 && response.status === 429
+              ? "Gemini still rejected this request after an automatic retry. "
+                + (result.message || "Check the Gemini API limits in Google AI Studio.")
+              : result.message || "Lyrics could not be generated. Try again later.";
+            const error = new Error(finalMessage);
+            error.status = response.status;
+            error.result = result;
+            throw error;
           }
-          if (!response.ok) {
-            throw new Error(result.message || "Lyrics could not be generated. Try again later.");
+        }
+        try {
+          const started = await sendLyricsAction({
+            videoUrl: "https://www.youtube.com/watch?v=" + encodeURIComponent(videoId),
+            languageHint: document.getElementById("lyrics-language-hint").value.trim()
+          });
+          let result = started.result;
+          jobToken = String(result.jobToken || "");
+          if (jobToken && result.status !== "completed") {
+            const deadline = Date.now() + 12 * 60 * 1000;
+            let pollDelay = Math.max(1500, Math.min(5000, Number(result.pollAfterMs) || 2500));
+            let nextProgressUpdate = Date.now() + 30000;
+            setLyricsImportStatus("Gemini is analyzing the video in the background. Keep this screen open; the Lyrics note will update when the draft is ready.");
+            while (result.status === "queued" || result.status === "in_progress") {
+              if (Date.now() >= deadline) {
+                try { await sendLyricsAction({ action: "cancel", jobToken }); } catch (_error) { /* Best-effort cleanup after the wait limit. */ }
+                jobToken = "";
+                throw new Error("This video is still processing after 12 minutes. The analysis was stopped; try a shorter public video.");
+              }
+              await wait(pollDelay);
+              let polled;
+              try {
+                polled = await sendLyricsAction({ action: "poll", jobToken });
+              } catch (error) {
+                const transientPollFailure = error && (error.status === 503 || error.status === 502)
+                  && error.result && error.result.retryable;
+                if (!transientPollFailure) throw error;
+                pollDelay = Math.max(2000, Math.min(15000, Number(error.result.retryAfterMs) || pollDelay * 1.5));
+                if (Date.now() >= nextProgressUpdate) {
+                  setLyricsImportStatus("The video is still processing. I’m reconnecting to the lyric draft.");
+                  nextProgressUpdate = Date.now() + 30000;
+                }
+                continue;
+              }
+              result = polled.result;
+              if (result.status === "queued") {
+                setLyricsImportStatus("Gemini has queued the video for analysis. The Lyrics note will update when it is ready.");
+              } else if (Date.now() >= nextProgressUpdate && result.status === "in_progress") {
+                setLyricsImportStatus("Gemini is still analyzing the video. Keep this screen open while it finishes.");
+                nextProgressUpdate = Date.now() + 30000;
+              }
+              pollDelay = Math.max(2000, Math.min(9000, Number(result.pollAfterMs) || Math.round(pollDelay * 1.35)));
+            }
           }
           const lyrics = String(result.lyrics || "").trim();
           if (!lyrics) throw new Error("No clear vocals were detected in this video.");
@@ -1565,6 +1627,11 @@
             || noteBody.readOnly || noteBody.value !== originalText) {
             throw new Error("The open note changed while lyrics were generating. Reopen the intended Lyrics note and try again.");
           }
+          if (jobToken) {
+            try { await sendLyricsAction({ action: "cleanup", jobToken }); }
+            catch (cleanupError) { console.warn("XENOMIND could not remove the completed Gemini interaction:", cleanupError); }
+            jobToken = "";
+          }
           importLyricsText(lyrics, "AI-generated lyric draft", true);
         } catch (error) {
           console.error("XENOMIND lyric generation failed:", error);
@@ -1573,6 +1640,16 @@
             : error.message || "Lyrics could not be generated. Try again later.";
           setLyricsImportStatus(message, "error");
         } finally {
+          if (jobToken) {
+            try {
+              await fetch("/api/transcribe-lyrics", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "cancel", jobToken })
+              });
+            } catch (_error) { /* The Gemini project retention policy remains the fallback cleanup. */ }
+            jobToken = "";
+          }
           button.disabled = false;
           endStageWork();
         }

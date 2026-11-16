@@ -26,6 +26,17 @@ async function withApiKey(value, callback) {
   }
 }
 
+async function startJob(ip) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ id: "v1_abcdefghijk123456789", status: "in_progress" });
+  try {
+    const response = await transcribeLyrics(post({ videoUrl }, ip), { ip });
+    return { response, body: await response.json() };
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
 test("rejects non-POST requests", async () => {
   const response = await transcribeLyrics(
     new Request("https://xenomind.example/api/transcribe-lyrics"),
@@ -45,28 +56,29 @@ test("reports a missing Functions key without exposing server configuration", as
   });
 });
 
-test("sends the public YouTube URI to Gemini and reads Interactions steps", async () => {
+test("starts a signed background job using Google's current REST revision", async () => {
   await withApiKey("test-gemini-key", async () => {
     const originalFetch = globalThis.fetch;
     let requestBody;
-    let requestKey;
+    let requestHeaders;
     globalThis.fetch = async (url, init) => {
       assert.equal(url, "https://generativelanguage.googleapis.com/v1beta/interactions");
+      assert.equal(init.method, "POST");
       requestBody = JSON.parse(init.body);
-      requestKey = init.headers["x-goog-api-key"];
-      return Response.json({
-        status: "completed",
-        steps: [{ type: "model_output", content: [{ type: "text", text: "First line\nSecond line" }] }]
-      });
+      requestHeaders = init.headers;
+      return Response.json({ id: "v1_abcdefghijk123456789", status: "in_progress" });
     };
     try {
       const response = await transcribeLyrics(post({ videoUrl, languageHint: "Swahili" }), { ip: "198.51.100.3" });
       const body = await response.json();
-      assert.equal(response.status, 200);
-      assert.equal(body.lyrics, "First line\nSecond line");
-      assert.equal(requestKey, "test-gemini-key");
+      assert.equal(response.status, 202);
+      assert.equal(body.status, "in_progress");
+      assert.match(body.jobToken, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+      assert.equal(requestHeaders["x-goog-api-key"], "test-gemini-key");
+      assert.equal(requestHeaders["Api-Revision"], "2026-05-20");
       assert.equal(requestBody.model, "gemini-3.8-flash");
-      assert.equal(requestBody.store, false);
+      assert.equal(requestBody.store, true);
+      assert.equal(requestBody.background, true);
       assert.equal(requestBody.input.find((item) => item.type === "video").uri, videoUrl);
       assert.match(requestBody.input.find((item) => item.type === "text").text, /Swahili/);
       assert.doesNotMatch(JSON.stringify(body), /test-gemini-key/);
@@ -76,7 +88,115 @@ test("sends the public YouTube URI to Gemini and reads Interactions steps", asyn
   });
 });
 
-test("returns Gemini's safe diagnostic when the API rejects a request", async () => {
+test("polls a signed background job and reads its completed lyrics", async () => {
+  await withApiKey("test-gemini-key", async () => {
+    const { response: started, body: startBody } = await startJob("198.51.100.11");
+    assert.equal(started.status, 202);
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      assert.match(url, /\/v1beta\/interactions\/v1_abcdefghijk123456789$/);
+      assert.equal(init.method, "GET");
+      return Response.json({
+        status: "completed",
+        steps: [{ type: "model_output", content: [{ type: "text", text: "First line\nSecond line" }] }]
+      });
+    };
+    try {
+      const response = await transcribeLyrics(post({ action: "poll", jobToken: startBody.jobToken }, "198.51.100.11"), {});
+      const body = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(body.status, "completed");
+      assert.equal(body.lyrics, "First line\nSecond line");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("deletes a finished interaction when the browser acknowledges receipt", async () => {
+  await withApiKey("test-gemini-key", async () => {
+    const { body: startBody } = await startJob("198.51.100.12");
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (_url, init) => {
+      assert.equal(init.method, "DELETE");
+      assert.equal(init.headers["Api-Revision"], "2026-05-20");
+      return new Response(null, { status: 204 });
+    };
+    try {
+      const response = await transcribeLyrics(post({ action: "cleanup", jobToken: startBody.jobToken }, "198.51.100.12"), {});
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).deleted, true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("distinguishes daily project quota exhaustion from transient rate limits", async () => {
+  await withApiKey("test-gemini-key", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalError = console.error;
+    globalThis.fetch = async () => Response.json({
+      error: {
+        code: 429,
+        status: "RESOURCE_EXHAUSTED",
+        message: "Quota exceeded for requests per day"
+      }
+    }, { status: 429 });
+    console.error = () => {};
+    try {
+      const response = await transcribeLyrics(post({ videoUrl }, "198.51.100.13"), { ip: "198.51.100.13" });
+      const body = await response.json();
+      assert.equal(response.status, 429);
+      assert.equal(body.retryable, false);
+      assert.match(body.message, /project quota|spend limit/i);
+    } finally {
+      globalThis.fetch = originalFetch;
+      console.error = originalError;
+    }
+  });
+});
+
+test("offers one brief automatic retry for an unspecified 429 rate limit", async () => {
+  await withApiKey("test-gemini-key", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalError = console.error;
+    globalThis.fetch = async () => Response.json({
+      error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "Temporary capacity limit" }
+    }, { status: 429 });
+    console.error = () => {};
+    try {
+      const response = await transcribeLyrics(post({ videoUrl }, "198.51.100.14"), { ip: "198.51.100.14" });
+      const body = await response.json();
+      assert.equal(response.status, 429);
+      assert.equal(body.retryable, true);
+      assert.equal(body.retryAfterMs, 2000);
+    } finally {
+      globalThis.fetch = originalFetch;
+      console.error = originalError;
+    }
+  });
+});
+
+test("rejects forged job tokens and malformed YouTube links without calling Gemini", async () => {
+  await withApiKey("test-gemini-key", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => { throw new Error("Gemini should not be called"); };
+    try {
+      const forgedToken = await transcribeLyrics(post({ action: "poll", jobToken: "forged.token" }), {});
+      assert.equal(forgedToken.status, 400);
+      const invalidUrl = await transcribeLyrics(
+        post({ videoUrl: "https://youtu.be/not-a-valid-id" }, "198.51.100.15"),
+        { ip: "198.51.100.15" }
+      );
+      assert.equal(invalidUrl.status, 400);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("redacts provider API keys from user-facing errors", async () => {
   await withApiKey("test-gemini-key", async () => {
     const originalFetch = globalThis.fetch;
     const originalError = console.error;
@@ -89,66 +209,14 @@ test("returns Gemini's safe diagnostic when the API rejects a request", async ()
     }, { status: 400 });
     console.error = () => {};
     try {
-      const response = await transcribeLyrics(post({ videoUrl }), { ip: "198.51.100.4" });
+      const response = await transcribeLyrics(post({ videoUrl }, "198.51.100.16"), { ip: "198.51.100.16" });
       const body = await response.json();
       assert.equal(response.status, 502);
       assert.match(body.message, /Video URL is not public/);
-      assert.doesNotMatch(body.message, /AIza/);
-      assert.doesNotMatch(JSON.stringify(body), /test-gemini-key/);
+      assert.doesNotMatch(JSON.stringify(body), /AIza|test-gemini-key/);
     } finally {
       globalThis.fetch = originalFetch;
       console.error = originalError;
-    }
-  });
-});
-
-test("returns the legacy text output shape when it is served by a compatibility endpoint", async () => {
-  await withApiKey("test-gemini-key", async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => Response.json({
-      status: "completed",
-      outputs: [{ type: "text", text: "Legacy response" }]
-    });
-    try {
-      const response = await transcribeLyrics(post({ videoUrl }), { ip: "198.51.100.6" });
-      assert.equal(response.status, 200);
-      assert.equal((await response.json()).lyrics, "Legacy response");
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-});
-
-test("turns an upstream timeout into a clear retry message", async () => {
-  await withApiKey("test-gemini-key", async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => {
-      const error = new Error("upstream timed out");
-      error.name = "AbortError";
-      throw error;
-    };
-    try {
-      const response = await transcribeLyrics(post({ videoUrl }), { ip: "198.51.100.7" });
-      assert.equal(response.status, 504);
-      assert.match((await response.json()).message, /too long to analyze/i);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-});
-
-test("rejects malformed YouTube links before contacting Gemini", async () => {
-  await withApiKey("test-gemini-key", async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => { throw new Error("Gemini should not be called"); };
-    try {
-      const response = await transcribeLyrics(
-        post({ videoUrl: "https://youtu.be/not-a-valid-id" }),
-        { ip: "198.51.100.5" }
-      );
-      assert.equal(response.status, 400);
-    } finally {
-      globalThis.fetch = originalFetch;
     }
   });
 });
