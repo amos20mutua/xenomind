@@ -1115,7 +1115,7 @@
         <textarea class="notes-body" id="note-body" maxlength="50000" rows="10" wrap="soft" spellcheck="true" autocapitalize="sentences" aria-describedby="notes-save-state"></textarea>
         <div class="lyrics-import" id="lyrics-import" hidden>
           <strong>Generate a lyric draft from YouTube</strong>
-          <p>Paste a public YouTube song link. XENOMIND will listen to the audio and draft the sung words, even when the video has no captions. Band members do not need to sign in. Generated lyrics can be inaccurate; review them together. Use videos you own or have permission to transcribe.</p>
+          <p>Paste a public YouTube song link. Private and unlisted videos are not available to Gemini, even when you can open them with a link. XENOMIND will listen to the audio and draft the sung words, even when the video has no captions. Band members do not need to sign in. Generated lyrics can be inaccurate; review them together. Use videos you own or have permission to transcribe.</p>
           <label class="field-label" for="youtube-lyrics-url">YOUTUBE SONG LINK</label>
           <input class="text-field" id="youtube-lyrics-url" type="url" maxlength="500" autocomplete="url" inputmode="url" placeholder="Paste the YouTube song link">
           <label class="field-label lyrics-language" for="lyrics-language-hint">LANGUAGE OR PRONUNCIATION HINT (OPTIONAL)</label>
@@ -1538,7 +1538,16 @@
           });
           let result = {};
           try { result = await response.json(); }
-          catch (_error) { throw new Error("The lyrics service returned an unreadable response."); }
+          catch (_error) {
+            if (response.status === 404) {
+              throw new Error("The lyrics function is not deployed at this site yet. Redeploy the latest Netlify build.");
+            }
+            if (response.status === 504) {
+              throw new Error("The video took too long to analyze. Try a shorter public video or try again later.");
+            }
+            throw new Error("The lyrics service returned HTTP " + response.status
+              + ". Confirm the latest Netlify deploy includes the lyrics function, then check its function logs.");
+          }
           if (!response.ok) {
             throw new Error(result.message || "Lyrics could not be generated. Try again later.");
           }
@@ -1554,7 +1563,10 @@
           importLyricsText(lyrics, "AI-generated lyric draft", true);
         } catch (error) {
           console.error("XENOMIND lyric generation failed:", error);
-          setLyricsImportStatus(error.message || "Lyrics could not be generated. Try again later.", "error");
+          const message = error instanceof TypeError
+            ? "Could not reach the lyrics service. Check your connection and the Netlify function status."
+            : error.message || "Lyrics could not be generated. Try again later.";
+          setLyricsImportStatus(message, "error");
         } finally {
           button.disabled = false;
         }

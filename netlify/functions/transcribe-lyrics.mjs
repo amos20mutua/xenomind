@@ -84,13 +84,34 @@ function claimRateLimit(ip) {
 function extractOutputText(data) {
   if (!data || typeof data !== "object") return "";
   if (typeof data.output_text === "string") return data.output_text.trim();
-  return (Array.isArray(data.steps) ? data.steps : [])
+  const stepText = (Array.isArray(data.steps) ? data.steps : [])
     .filter((step) => step && step.type === "model_output" && Array.isArray(step.content))
     .flatMap((step) => step.content)
     .filter((item) => item && item.type === "text" && typeof item.text === "string")
     .map((item) => item.text)
     .join("\n")
     .trim();
+  if (stepText) return stepText;
+  return (Array.isArray(data.outputs) ? data.outputs : [])
+    .filter((item) => item && item.type === "text" && typeof item.text === "string")
+    .map((item) => item.text)
+    .join("\n")
+    .trim();
+}
+
+function safeGeminiError(result) {
+  const error = result && result.error && typeof result.error === "object" ? result.error : {};
+  const message = typeof error.message === "string" ? error.message : "";
+  return {
+    code: Number.isSafeInteger(error.code) ? error.code : undefined,
+    status: typeof error.status === "string" ? error.status.slice(0, 80) : undefined,
+    message: message
+      .replace(/AIza[0-9A-Za-z_-]{20,}/g, "[redacted API key]")
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 280)
+  };
 }
 
 export default async (request, context) => {
@@ -128,7 +149,7 @@ export default async (request, context) => {
       return jsonResponse({ message: "The request is too large." }, 413);
     }
   }
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) {
     return jsonResponse({
       message: "Lyric generation is not set up yet. Ask the site owner to finish setup; band members do not need to sign in."
@@ -196,20 +217,38 @@ export default async (request, context) => {
     catch (_error) { /* Use the status-based message below. */ }
 
     if (!upstream.ok) {
+      const geminiError = safeGeminiError(result);
+      console.error("XENOMIND Gemini video request failed.", JSON.stringify({
+        httpStatus: upstream.status,
+        apiCode: geminiError.code,
+        apiStatus: geminiError.status,
+        message: geminiError.message
+      }));
       const message = upstream.status === 429
-        ? "The lyric generator is at its request limit. Try again later."
-        : upstream.status === 400 || upstream.status === 404
-          ? "This video could not be analyzed. Check the link and make sure the video is public."
-          : upstream.status === 401 || upstream.status === 403
-            ? "The lyric generator's server key is invalid or does not have API access."
-            : "The lyric generator is temporarily unavailable. Try again later.";
+        ? "Gemini's request or quota limit was reached. Check the Gemini API quota, then try again."
+        : upstream.status === 401 || upstream.status === 403
+          ? "Gemini rejected the server key or its API access. Check that GEMINI_API_KEY is enabled for Netlify Functions and that the Gemini API is available to that key."
+          : upstream.status === 400 || upstream.status === 404
+            ? geminiError.message
+              ? "Gemini rejected this video request: " + geminiError.message
+              : "Gemini could not analyze this video. Confirm the video is public and try again."
+            : geminiError.message
+              ? "Gemini returned an error: " + geminiError.message
+              : "Gemini is temporarily unavailable. Check the Netlify function logs and try again.";
       return jsonResponse({ message }, upstream.status === 429 ? 429 : 502);
     }
     if (!result || typeof result !== "object" || Array.isArray(result)) {
       return jsonResponse({ message: "The lyric generator returned an unreadable response." }, 502);
     }
     if (result.status && result.status !== "completed") {
-      return jsonResponse({ message: "The lyric draft did not finish. Try again or use a shorter video." }, 502);
+      const completionError = safeGeminiError(result).message;
+      console.error("XENOMIND Gemini interaction did not complete.", JSON.stringify({
+        status: String(result.status).slice(0, 80),
+        message: completionError
+      }));
+      return jsonResponse({ message: completionError
+        ? "The lyric draft did not finish: " + completionError
+        : "The lyric draft did not finish. Try a shorter public video or check the Netlify function logs." }, 502);
     }
     const lyrics = extractOutputText(result);
     if (!lyrics) {
