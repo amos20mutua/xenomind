@@ -10,6 +10,30 @@ const MAX_LYRIC_CHARACTERS = 50000;
 const RATE_LIMIT_WINDOW_MS = 15000;
 const recentRequests = new Map();
 
+async function readLimitedBody(request) {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks = [];
+  let byteLength = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    byteLength += value.byteLength;
+    if (byteLength > MAX_REQUEST_BYTES) {
+      await reader.cancel();
+      throw new RangeError("Request body is too large.");
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -71,11 +95,38 @@ function extractOutputText(data) {
 
 export default async (request, context) => {
   if (request.method !== "POST") {
-    return jsonResponse({ message: "Use POST to generate a lyric draft." }, 405);
+    return new Response(JSON.stringify({ message: "Use POST to generate a lyric draft." }), {
+      status: 405,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Allow": "POST"
+      }
+    });
   }
-  const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > MAX_REQUEST_BYTES) {
-    return jsonResponse({ message: "The request is too large." }, 413);
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      if (new URL(origin).origin !== new URL(request.url).origin) {
+        return jsonResponse({ message: "Requests must come from this XENOMIND page." }, 403);
+      }
+    } catch (_error) {
+      return jsonResponse({ message: "Requests must come from this XENOMIND page." }, 403);
+    }
+  }
+  const contentType = (request.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
+  if (contentType !== "application/json") {
+    return jsonResponse({ message: "Send the request as JSON." }, 415);
+  }
+  const contentLengthHeader = request.headers.get("content-length");
+  if (contentLengthHeader !== null) {
+    const contentLength = Number(contentLengthHeader);
+    if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
+      return jsonResponse({ message: "The request size could not be read." }, 400);
+    }
+    if (contentLength > MAX_REQUEST_BYTES) {
+      return jsonResponse({ message: "The request is too large." }, 413);
+    }
   }
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -85,12 +136,12 @@ export default async (request, context) => {
   }
   let body;
   try {
-    const rawBody = await request.text();
-    if (rawBody.length > MAX_REQUEST_BYTES) {
+    const rawBody = await readLimitedBody(request);
+    body = JSON.parse(rawBody);
+  } catch (error) {
+    if (error instanceof RangeError) {
       return jsonResponse({ message: "The request is too large." }, 413);
     }
-    body = JSON.parse(rawBody);
-  } catch (_error) {
     return jsonResponse({ message: "The request could not be read." }, 400);
   }
   if (!body || typeof body !== "object" || Array.isArray(body)) {

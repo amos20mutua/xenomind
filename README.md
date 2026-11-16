@@ -22,16 +22,16 @@ timeline, and optional x-callback-url return are served with the app.
    preview supports handoffs, but iOS only enables Service Workers in a secure
    context. For offline PWA launches, host the files over HTTPS (or test at
    `localhost` on the same device).
-4. On iPhone, create the Shortcuts below. On Android, build and install the
-   companion app from Android Studio.
+4. On iPhone, create the Shortcuts using [the setup guide](./IOS_SHORTCUTS.md).
+   On Android, build and install the companion app from Android Studio.
 5. Tap an action and review it in the device handoff. Stop the local server
    with **Ctrl+C** when finished.
 
-The server binds to local network interfaces and serves the cockpit, its four
-PWA assets, and one lyric-generation endpoint; it does not expose other project
-files. Use it only on a trusted private network; do not port-forward it or
-expose it to the public internet. If Windows Firewall asks, allow access on
-private networks only.
+The server binds to local network interfaces and serves the cockpit, its PWA
+assets, the iPhone Shortcut setup guide, and one lyric-generation endpoint; it
+does not expose other project files. Use it only on a trusted private network;
+do not port-forward it or expose it to the public internet. If Windows Firewall
+asks, allow access on private networks only.
 
 ## Deploy on Netlify
 
@@ -58,8 +58,9 @@ reliably launch phone apps from background speech callbacks.
 
 ## iPhone setup
 
-Create the four Shortcuts below on the iPhone and allow each to receive **Text**
-input. Use **Get Dictionary from Input** to parse the JSON. Standard requests
+Create the four Shortcuts on the iPhone using [the setup guide](./IOS_SHORTCUTS.md)
+and allow each to receive **Text** input. Use **Get Dictionary from Input** to
+parse the JSON. Standard requests
 include machine-readable `category`, `actionType`, `actionLabel`, and `noteText`,
 plus `module`/`action`/`text` compatibility keys and optional `dueAt` or macro
 `steps`. Branch on `action` for single Reminder and Library actions; use
@@ -148,10 +149,11 @@ Studio with JDK 17+ and Android SDK Platform 35, sync Gradle, then run/install
 the `app` on your phone. The app registers the `xenomind://run` handoff used by
 the cockpit.
 
-- Reminders are stored locally in the companion app, not synced to Apple
-  Reminders or Google Tasks. Optional notifications require OS permission and
-  use inexact Android alarms; battery settings can delay them. Tapping a
-  reminder notification opens the local reminder list. Pending alerts are
+- Reminders can be created in the companion or from the cockpit, and are stored
+  locally in the companion app, not synced to Apple Reminders or Google Tasks.
+  Add a due date and time for an optional notification. Alerts require OS
+  permission and use inexact Android alarms; battery settings can delay them.
+  Tapping a reminder notification opens the local reminder list. Pending alerts are
   restored after device restart or app update.
 - Photos and files are selected with Android's system picker. Share opens the
   Android share sheet. Organize copies selected files to a folder you choose
@@ -167,8 +169,6 @@ tested.** This workspace has no Java, Gradle, Android SDK, emulator, or Android
 device. Do not treat Android task actions as verified until the app builds and
 the permission, notification, picker, copy, and share flows are tested on your
 target phone.
-
-## Desktop neural interface
 
 ## Desktop neural interface requirements and run
 

@@ -18,6 +18,7 @@ from urllib.request import Request, urlopen
 
 PAGE = Path(__file__).with_name("iphone_cockpit.html")
 STATIC_FILES = {
+    "/IOS_SHORTCUTS.md": (Path(__file__).with_name("IOS_SHORTCUTS.md"), "text/markdown; charset=utf-8"),
     "/manifest.json": (Path(__file__).with_name("manifest.json"), "application/manifest+json; charset=utf-8"),
     "/sw.js": (Path(__file__).with_name("sw.js"), "text/javascript; charset=utf-8"),
     "/icon.svg": (Path(__file__).with_name("icon.svg"), "image/svg+xml"),
@@ -107,6 +108,28 @@ class CockpitHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if urlsplit(self.path).path != "/api/transcribe-lyrics":
             self.send_error(404, "Not found")
+            return
+        origin = self.headers.get("Origin")
+        if origin:
+            try:
+                origin_url = urlsplit(origin)
+                request_host = self.headers.get("Host", "")
+                if (
+                    origin_url.scheme != "http"
+                    or not origin_url.netloc
+                    or origin_url.netloc.lower() != request_host.lower()
+                    or origin_url.path not in ("", "/")
+                    or origin_url.query
+                    or origin_url.fragment
+                ):
+                    self.send_json(403, {"message": "Requests must come from this XENOMIND page."})
+                    return
+            except ValueError:
+                self.send_json(403, {"message": "Requests must come from this XENOMIND page."})
+                return
+        content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            self.send_json(415, {"message": "Send the request as JSON."})
             return
         try:
             content_length = int(self.headers.get("Content-Length", "0"))

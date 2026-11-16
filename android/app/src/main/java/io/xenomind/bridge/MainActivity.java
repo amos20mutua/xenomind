@@ -4,7 +4,9 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.app.PendingIntent;
+import android.app.TimePickerDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
@@ -37,6 +39,7 @@ import java.io.OutputStream;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -159,6 +162,7 @@ public final class MainActivity extends Activity {
                 "It does not upload data or run actions in the background without your approval.",
             14, MUTED, false, 0, 0, 20, 0
         );
+        addButton("Create a reminder", () -> showReminderForm("", 0));
         addButton("View my reminders", () -> showReminderList(""));
         addButton("Choose photos", () -> {
             libraryAction = "photos";
@@ -193,36 +197,69 @@ public final class MainActivity extends Activity {
     private void showReminderForm(String initialTitle, long dueAt) {
         beginPage("NEW REMINDER", "SAVED ON THIS ANDROID DEVICE");
         addText("A thought worth keeping.", 22, TEXT, true, 0, 0, 6, 0);
-        addText(
-            dueAt > 0
-                ? "Review the title and due time. Android may deliver the notification later than scheduled."
-                : "This creates a local task. Add an optional due time for a notification.",
-            13, MUTED, false, 0, 0, 17, 0
-        );
+        addText("This creates a local task. Add an optional due time for a notification.",
+            13, MUTED, false, 0, 0, 17, 0);
         addText("TASK TITLE", 10, MINT, true, 0, 0, 6, 0);
         EditText title = addInput(initialTitle, "What should you remember?");
         title.setSingleLine(true);
-        if (dueAt > 0) {
-            addText("DUE", 10, MINT, true, 0, 16, 5, 0);
-            addText(
-                android.text.format.DateFormat.getMediumDateFormat(this).format(dueAt) + "  " +
-                    android.text.format.DateFormat.getTimeFormat(this).format(dueAt),
-                14, TEXT, false, 0, 0, 17, 0
-            );
-        } else {
-            addText("No due time selected. The task will not create an alert.", 12, MUTED, false, 0, 9, 17, 0);
-        }
+        long[] dueAtValue = {dueAt};
+        TextView dueSummary = text("", 12, MUTED, false);
+        content.addView(dueSummary);
+        updateDueSummary(dueSummary, dueAtValue[0]);
+        addButton("Choose date and time", () -> chooseReminderDueTime(dueAtValue, dueSummary));
+        addButton("Clear due time", () -> {
+            dueAtValue[0] = 0;
+            updateDueSummary(dueSummary, 0);
+        });
         addButton("Save local reminder", () -> {
             String value = title.getText().toString().trim();
             if (value.isEmpty()) {
                 title.setError("Enter a reminder title");
                 return;
             }
+            if (value.length() > 180) {
+                title.setError("Use 180 characters or fewer");
+                return;
+            }
+            if (dueAtValue[0] > 0 && dueAtValue[0] <= System.currentTimeMillis()) {
+                showError("Choose a future due time or clear the due time.");
+                return;
+            }
             pendingTitle = value;
-            pendingDueAt = dueAt;
+            pendingDueAt = dueAtValue[0];
             saveReminderAfterPermission();
         });
         addButton("Cancel", () -> showHome("cancel"));
+    }
+
+    private void chooseReminderDueTime(long[] dueAtValue, TextView dueSummary) {
+        Calendar initial = Calendar.getInstance();
+        if (dueAtValue[0] > 0) initial.setTimeInMillis(dueAtValue[0]);
+        DatePickerDialog datePicker = new DatePickerDialog(this, (picker, year, month, day) -> {
+            Calendar chosen = Calendar.getInstance();
+            chosen.set(year, month, day);
+            new TimePickerDialog(this, (timePicker, hour, minute) -> {
+                chosen.set(Calendar.HOUR_OF_DAY, hour);
+                chosen.set(Calendar.MINUTE, minute);
+                chosen.set(Calendar.SECOND, 0);
+                chosen.set(Calendar.MILLISECOND, 0);
+                dueAtValue[0] = chosen.getTimeInMillis();
+                updateDueSummary(dueSummary, dueAtValue[0]);
+            }, initial.get(Calendar.HOUR_OF_DAY), initial.get(Calendar.MINUTE),
+                android.text.format.DateFormat.is24HourFormat(this)).show();
+        }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH));
+        datePicker.getDatePicker().setMinDate(System.currentTimeMillis());
+        datePicker.show();
+    }
+
+    private void updateDueSummary(TextView dueSummary, long dueAt) {
+        if (dueAt <= 0) {
+            dueSummary.setText("No due time selected. The task will not create an alert.");
+        } else {
+            dueSummary.setText("Due " + android.text.format.DateFormat.getMediumDateFormat(this).format(dueAt)
+                + "  " + android.text.format.DateFormat.getTimeFormat(this).format(dueAt)
+                + ". Android may deliver the notification later.");
+        }
     }
 
     private void saveReminderAfterPermission() {
@@ -264,8 +301,11 @@ public final class MainActivity extends Activity {
             if (pendingDueAt > System.currentTimeMillis()) {
                 if (Build.VERSION.SDK_INT < 33 ||
                     checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-                    scheduleReminder(id, pendingTitle, pendingDueAt);
-                    showMessage("Reminder saved. Android may delay its notification.");
+                    if (scheduleReminder(id, pendingTitle, pendingDueAt)) {
+                        showMessage("Reminder saved. Android may delay its notification.");
+                    } else {
+                        showMessage("Reminder saved without an alert. Check Android's alarm and notification settings.");
+                    }
                 } else {
                     showMessage("Reminder saved without an alert; notification permission was declined.");
                 }
@@ -330,6 +370,7 @@ public final class MainActivity extends Activity {
                     14, MUTED, false, 0, 4, 18, 0
                 );
             }
+            addButton("Create a reminder", () -> showReminderForm("", 0));
             addButton("Back to companion", this::showHome);
             addReturnButton();
         } catch (JSONException error) {
@@ -377,19 +418,23 @@ public final class MainActivity extends Activity {
         return -1;
     }
 
-    private void scheduleReminder(int id, String title, long dueAt) {
+    private boolean scheduleReminder(int id, String title, long dueAt) {
         AlarmManager alarms = getSystemService(AlarmManager.class);
         if (alarms == null) {
-            showError("Android's alarm service is unavailable. The task was saved without a notification.");
-            return;
+            return false;
         }
-        Intent alarmIntent = new Intent(this, ReminderAlarmReceiver.class)
-            .putExtra(ReminderAlarmReceiver.EXTRA_TITLE, title)
-            .putExtra(ReminderAlarmReceiver.EXTRA_TASK_ID, id);
-        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
-        PendingIntent pending = PendingIntent.getBroadcast(this, id, alarmIntent, flags);
-        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+        try {
+            Intent alarmIntent = new Intent(this, ReminderAlarmReceiver.class)
+                .putExtra(ReminderAlarmReceiver.EXTRA_TITLE, title)
+                .putExtra(ReminderAlarmReceiver.EXTRA_TASK_ID, id);
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
+            PendingIntent pending = PendingIntent.getBroadcast(this, id, alarmIntent, flags);
+            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAt, pending);
+            return true;
+        } catch (SecurityException | IllegalStateException error) {
+            return false;
+        }
     }
 
     private void cancelReminder(int id) {
@@ -508,10 +553,15 @@ public final class MainActivity extends Activity {
             showError("Select at least one item first.");
             return;
         }
-        Intent share = new Intent(Intent.ACTION_SEND_MULTIPLE);
+        Intent share = new Intent(selectedUris.size() == 1
+            ? Intent.ACTION_SEND : Intent.ACTION_SEND_MULTIPLE);
         share.setType("organize".equals(libraryAction) ? "*/*"
             : "photos".equals(libraryAction) ? "image/*" : "*/*");
-        share.putParcelableArrayListExtra(Intent.EXTRA_STREAM, new ArrayList<>(selectedUris));
+        if (selectedUris.size() == 1) {
+            share.putExtra(Intent.EXTRA_STREAM, selectedUris.get(0));
+        } else {
+            share.putParcelableArrayListExtra(Intent.EXTRA_STREAM, new ArrayList<>(selectedUris));
+        }
         share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         ClipData clip = ClipData.newUri(getContentResolver(), "Xenomind selection", selectedUris.get(0));
         for (int index = 1; index < selectedUris.size(); index++) {
@@ -554,6 +604,11 @@ public final class MainActivity extends Activity {
 
     private void copySelectedFiles(Uri tree) {
         final ArrayList<Uri> sources = new ArrayList<>(selectedUris);
+        beginPage("COPYING FILES", "ORIGINALS ARE KEPT");
+        addText("Copying " + sources.size() + " selected item(s) into the folder you chose.",
+            15, TEXT, true, 0, 0, 16, 0);
+        addText("Keep XENOMIND open until the copy finishes.",
+            13, MUTED, false, 0, 0, 18, 0);
         fileWorker.execute(() -> {
             int copied = 0;
             String errorMessage = null;
@@ -600,10 +655,10 @@ public final class MainActivity extends Activity {
                 while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
                 output.flush();
             }
-        } catch (IOException error) {
+        } catch (IOException | SecurityException error) {
             try {
                 DocumentsContract.deleteDocument(getContentResolver(), destination);
-            } catch (IOException cleanupError) {
+            } catch (IOException | SecurityException cleanupError) {
                 error.addSuppressed(cleanupError);
             }
             throw error;

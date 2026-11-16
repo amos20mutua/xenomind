@@ -1165,7 +1165,7 @@
           <li><strong>Xenomind - Home:</strong> match the requested scene and run it with your Home permissions. HomeKit is iOS-only in this version.</li>
           <li><strong>Xenomind - Chain:</strong> process the payload's <code>steps</code> in order. Add your own Focus, Home, Reminders, and picker actions; iOS may still ask for permission or confirmation.</li>
         </ol>
-        <p>Enable receiving Text input. Use <strong>Get Dictionary from Input</strong> to parse the JSON; shortcut names must match the fields below. A returned handoff only confirms the Shortcut returned to this page.</p>
+        <p>Enable receiving Text input. Use <strong>Get Dictionary from Input</strong> to parse the JSON; shortcut names must match the fields below. The full action-by-action setup guide is <a href="./IOS_SHORTCUTS.md" target="_blank" rel="noopener noreferrer">available here</a>. A returned handoff only confirms the Shortcut returned to this page.</p>
       </div>
       <div class="dialog-section" id="ios-shortcut-names">
         <h3>Shortcut names</h3>
@@ -2068,23 +2068,40 @@
       }
 
       function replayHandoff(item) {
+        const replayPayload = { ...item.payload };
+        const dueAt = replayPayload.dueAt;
+        const dueTime = dueAt ? Date.parse(dueAt) : 0;
+        let droppedExpiredDueTime = Boolean(dueAt && (!Number.isFinite(dueTime) || dueTime <= Date.now()));
+        if (droppedExpiredDueTime) delete replayPayload.dueAt;
+        if (Array.isArray(replayPayload.steps)) {
+          replayPayload.steps = replayPayload.steps.map((step) => {
+            const stepDueAt = step && step.dueAt;
+            const stepDueTime = stepDueAt ? Date.parse(stepDueAt) : 0;
+            if (!stepDueAt || (Number.isFinite(stepDueTime) && stepDueTime > Date.now())) return step;
+            droppedExpiredDueTime = true;
+            const currentStep = { ...step };
+            delete currentStep.dueAt;
+            return currentStep;
+          });
+        }
         if (item.shortcutKey && isAppleMobile) {
           const category = item.category;
           dispatchToiOS(category, item.actionType, item.noteText, {
             label: item.label,
-            replayPayload: item.payload
+            replayPayload
           });
+          if (droppedExpiredDueTime) announce("That reminder time has passed, so the replay will have no due time.");
           return;
         }
-        if (isAndroid && item.payload.module) {
+        if (isAndroid && replayPayload.module) {
           const id = makeId();
           if (!recordHandoff({
             id, category: item.category, actionType: item.actionType,
-            noteText: item.noteText, payload: item.payload, shortcutKey: "",
+            noteText: item.noteText, payload: replayPayload, shortcutKey: "",
             label: item.label, status: "Dispatched"
           })) return;
           const url = new URL("xenomind://run");
-          Object.entries(item.payload).forEach(([key, value]) => {
+          Object.entries(replayPayload).forEach(([key, value]) => {
             if (value !== null && typeof value !== "object" && value !== "") {
               url.searchParams.set(key, String(value));
             }
@@ -2092,6 +2109,7 @@
           url.searchParams.set("callback", callbackUrl(id));
           haptic();
           window.location.href = url.toString();
+          if (droppedExpiredDueTime) announce("That reminder time has passed, so the replay will have no due time.");
           return;
         }
         announce("Replay is available on the phone that can run this handoff.");
@@ -2264,15 +2282,16 @@
         }
         const words = transcript.toLowerCase();
         const cleaned = transcript.replace(/^\s*(please\s+)?(remind me to|add a reminder to|remember to|set a reminder to|find|open|show|back up|backup|copy|turn on|turn off|set|activate)\s+/i, "").trim();
+        const isReminderRequest = /\b(remind me|remember to|add a reminder|set a reminder|reminders?|tasks?|to-dos?)\b/.test(words);
         let category;
-        if (/\b(photo|photos|picture|pictures|camera|file|files|backup|back up|copy)\b/.test(words)) {
+        if (!isReminderRequest && /\b(photo|photos|picture|pictures|camera|file|files|backup|back up|copy)\b/.test(words)) {
           category = "library";
           const task = /\b(copy|backup|back up)\b/.test(words) ? "organize"
             : /\b(file|files)\b/.test(words) ? "files" : "photos";
           document.getElementById("tab-library").click();
           document.querySelector(`[data-library-task="${task}"]`).click();
           intentInput.value = cleaned || transcript;
-        } else if (/\b(home|light|lights|scene|focus|evening)\b/.test(words)) {
+        } else if (!isReminderRequest && /\b(home|light|lights|scene|focus|evening)\b/.test(words)) {
           if (isAndroid) {
             announce("HomeKit is iPhone-only. The Android companion cannot control Apple Home.");
             return;

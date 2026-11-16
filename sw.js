@@ -2,7 +2,7 @@
 
 const CACHE_NAME = "xenomind-shell-v1";
 const SHELL_URL = new URL("/", self.location.origin).href;
-const APP_SHELL = ["/", "/manifest.json", "/icon.svg", "/apple-touch-icon.png"]
+const APP_SHELL = ["/", "/IOS_SHORTCUTS.md", "/manifest.json", "/icon.svg", "/apple-touch-icon.png"]
   .map((path) => new URL(path, self.location.origin).href);
 
 self.addEventListener("install", (event) => {
@@ -29,15 +29,19 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
+    const navigationUrl = new URL(request.url);
+    const isCockpitPage = ["/", "/index.html", "/iphone_cockpit.html"]
+      .includes(navigationUrl.pathname);
     event.respondWith(
       fetch(request).then((response) => {
-        if (response.ok) {
+        if (response.ok && isCockpitPage) {
           const copy = response.clone();
           event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(SHELL_URL, copy)));
         }
         return response;
-      }).catch(() => caches.match(SHELL_URL, { ignoreSearch: true })
-        .then((cached) => cached || new Response("XENOMIND is offline.", { status: 503 })))
+      }).catch(() => caches.match(request).then((cachedPage) => cachedPage
+        || caches.match(SHELL_URL, { ignoreSearch: true })
+        .then((cachedShell) => cachedShell || new Response("XENOMIND is offline.", { status: 503 }))))
     );
     return;
   }
