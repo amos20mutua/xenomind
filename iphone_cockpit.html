@@ -1228,6 +1228,9 @@
       let stageTextSize = 30;
       let noteSaveTimer;
       let stageIdleTimer;
+      let stageWorkCount = 0;
+      const stageActivePointers = new Set();
+      const stageActiveKeys = new Set();
       const screenWakeLockDuration = 3 * 60 * 1000;
       let screenWakeLock;
       let screenWakeLockTimer;
@@ -1527,6 +1530,7 @@
           && !window.confirm("Replace the current lyrics in this note with a generated lyric draft?")) return;
 
         button.disabled = true;
+        beginStageWork();
         setLyricsImportStatus("Listening to the public video and drafting the lyrics. This may take a minute.");
         try {
           const response = await fetch("/api/transcribe-lyrics", {
@@ -1570,6 +1574,7 @@
           setLyricsImportStatus(message, "error");
         } finally {
           button.disabled = false;
+          endStageWork();
         }
       }
 
@@ -1584,6 +1589,7 @@
           setLyricsImportStatus("This captions file is too large to import.", "error");
           return;
         }
+        beginStageWork();
         try {
           const text = typeof file.text === "function" ? await file.text() : await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -1595,6 +1601,8 @@
           importLyricsText(lyrics, file.name);
         } catch (_error) {
           setLyricsImportStatus("The selected file could not be read.", "error");
+        } finally {
+          endStageWork();
         }
       }
 
@@ -1692,19 +1700,40 @@
           });
       }
 
+      function stageHasActiveInteraction() {
+        return recognitionStarted || stageWorkCount > 0
+          || stageActivePointers.size > 0 || stageActiveKeys.size > 0
+          || Boolean(settingsDialog && settingsDialog.open);
+      }
+
+      function beginStageWork() {
+        stageWorkCount++;
+        clearTimeout(stageIdleTimer);
+      }
+
+      function endStageWork() {
+        stageWorkCount = Math.max(0, stageWorkCount - 1);
+        if (stageWorkCount === 0) resetStageIdleTimer();
+      }
+
+      function attemptStageDim() {
+        if (!document.body.classList.contains("notes-mode") || document.hidden) return;
+        if (stageHasActiveInteraction()) {
+          stageIdleTimer = window.setTimeout(attemptStageDim, 250);
+          return;
+        }
+        document.body.classList.add("stage-dimmed");
+        wakeBrainRendered = false;
+        scheduleBrainFrame();
+      }
+
       function resetStageIdleTimer() {
         clearTimeout(stageIdleTimer);
         if (!document.body.classList.contains("notes-mode")) return;
         keepScreenAwake();
         document.body.classList.remove("stage-dimmed");
         if (document.hidden) return;
-        stageIdleTimer = window.setTimeout(() => {
-          if (document.body.classList.contains("notes-mode")) {
-            document.body.classList.add("stage-dimmed");
-            wakeBrainRendered = false;
-            scheduleBrainFrame();
-          }
-        }, 10000);
+        stageIdleTimer = window.setTimeout(attemptStageDim, 10000);
       }
 
       function setStageMode(enabled) {
@@ -1815,17 +1844,41 @@
         if (Date.now() - lastWakePointerAt < 500) return;
         wakeStageDisplay();
       });
-      document.addEventListener("pointerdown", () => {
+      function noteStageActivity() {
         if (document.body.classList.contains("notes-mode")
           && !document.body.classList.contains("stage-dimmed")) resetStageIdleTimer();
+      }
+      document.addEventListener("pointerdown", (event) => {
+        stageActivePointers.add(event.pointerId);
+        noteStageActivity();
       }, { passive: true });
       document.addEventListener("keydown", (event) => {
-        if (!event.repeat && document.body.classList.contains("notes-mode")
-          && !document.body.classList.contains("stage-dimmed")) resetStageIdleTimer();
+        stageActiveKeys.add(event.code);
+        noteStageActivity();
+      });
+      document.addEventListener("pointermove", (event) => {
+        if (stageActivePointers.has(event.pointerId)) noteStageActivity();
+      }, { passive: true });
+      document.addEventListener("pointerup", (event) => {
+        stageActivePointers.delete(event.pointerId);
+        noteStageActivity();
+      }, { passive: true });
+      document.addEventListener("pointercancel", (event) => {
+        stageActivePointers.delete(event.pointerId);
+        noteStageActivity();
+      }, { passive: true });
+      document.addEventListener("keyup", (event) => {
+        stageActiveKeys.delete(event.code);
+        noteStageActivity();
+      });
+      ["input", "change", "focusin", "wheel", "scroll"].forEach((eventName) => {
+        document.addEventListener(eventName, noteStageActivity, { passive: true, capture: eventName === "scroll" });
       });
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
           clearTimeout(stageIdleTimer);
+          stageActivePointers.clear();
+          stageActiveKeys.clear();
           releaseScreenWakeLock();
         } else if (document.body.classList.contains("notes-mode")) {
           if (!document.body.classList.contains("stage-dimmed")) resetStageIdleTimer();
@@ -1833,6 +1886,15 @@
         }
       });
       window.addEventListener("pagehide", persistStageNotes);
+      window.addEventListener("blur", () => {
+        clearTimeout(stageIdleTimer);
+        stageActivePointers.clear();
+        stageActiveKeys.clear();
+      });
+      window.addEventListener("focus", () => {
+        if (document.body.classList.contains("notes-mode")
+          && !document.body.classList.contains("stage-dimmed")) resetStageIdleTimer();
+      });
 
       function shortcutNames() {
         const saved = readObject(storageKey, {});
@@ -2569,6 +2631,7 @@
           if (recognition === currentRecognition) recognition = null;
           recognitionStarted = false;
           voiceCaptureContext = null;
+          if (recognitionWasNotes) resetStageIdleTimer();
           if (voiceNode.dataset.state === "listening") setNeuralState("idle");
           refreshVoiceHint();
           if (!recognitionWasNotes && !voiceCommandResultHandled && !voiceRecognitionError) {
